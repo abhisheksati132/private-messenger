@@ -28,7 +28,7 @@ data class AppReleaseInfo(
 
 class AppUpdateManager(private val context: Context) {
     private val TAG = "AppUpdateManager"
-    private val GITHUB_API_URL = "https://api.github.com/repos/abhisheksati132/bds-apk/releases/latest"
+    private val GITHUB_API_URL = "https://api.github.com/repos/abhisheksati132/private-messenger/releases/latest"
 
     fun getCurrentVersionName(): String {
         return try {

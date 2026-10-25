@@ -29,6 +29,18 @@ interface MessengerDao {
     @Query("UPDATE conversations SET disappearingTimerSeconds = :timerSeconds WHERE id = :conversationId")
     suspend fun updateDisappearingTimer(conversationId: Long, timerSeconds: Long)
 
+    @Query("UPDATE conversations SET isPinned = :isPinned WHERE id = :id")
+    suspend fun updateConversationPinned(id: Long, isPinned: Boolean)
+
+    @Query("UPDATE conversations SET isArchived = :isArchived WHERE id = :id")
+    suspend fun updateConversationArchived(id: Long, isArchived: Boolean)
+
+    @Query("UPDATE conversations SET unreadCount = :unreadCount WHERE id = :id")
+    suspend fun updateConversationUnreadCount(id: Long, unreadCount: Int)
+
+    @Query("SELECT * FROM conversations WHERE isArchived = 1 ORDER BY lastTimestamp DESC")
+    fun getArchivedConversations(): Flow<List<ConversationEntity>>
+
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: Long)
 
@@ -42,6 +54,33 @@ interface MessengerDao {
     @Update
     suspend fun updateMessage(message: MessageEntity)
 
+    @Query("UPDATE messages SET reaction = :reaction WHERE id = :id")
+    suspend fun updateMessageReaction(id: Long, reaction: String?)
+
+    @Query("UPDATE messages SET reaction = :reaction WHERE cloudMsgDocId = :cloudDocId")
+    suspend fun updateMessageReactionByCloudDocId(cloudDocId: String, reaction: String?)
+
+    @Query("UPDATE messages SET isPinned = :isPinned WHERE id = :id")
+    suspend fun updateMessagePinned(id: Long, isPinned: Boolean)
+
+    @Query("UPDATE messages SET isPinned = :isPinned WHERE cloudMsgDocId = :cloudDocId")
+    suspend fun updateMessagePinnedByCloudDocId(cloudDocId: String, isPinned: Boolean)
+
+    @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND isPinned = 1 ORDER BY timestamp DESC")
+    fun getPinnedMessages(conversationId: Long): Flow<List<MessageEntity>>
+
+    @Query("UPDATE messages SET text = :newText, cipherText = :newCipherText, isEdited = 1 WHERE id = :id")
+    suspend fun updateMessageText(id: Long, newText: String, newCipherText: String = "")
+
+    @Query("UPDATE messages SET text = :newText, cipherText = :newCipherText, isEdited = 1 WHERE cloudMsgDocId = :cloudDocId")
+    suspend fun updateMessageTextByCloudDocId(cloudDocId: String, newText: String, newCipherText: String = "")
+
+    @Query("SELECT * FROM messages WHERE cloudMsgDocId = :cloudDocId LIMIT 1")
+    suspend fun getMessageByCloudDocId(cloudDocId: String): MessageEntity?
+
+    @Query("SELECT * FROM messages WHERE id = :id LIMIT 1")
+    suspend fun getMessageById(id: Long): MessageEntity?
+
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun deleteMessage(id: Long)
 
@@ -51,30 +90,24 @@ interface MessengerDao {
     @Query("DELETE FROM messages WHERE expiresAtTimestamp IS NOT NULL AND expiresAtTimestamp <= :now")
     suspend fun purgeExpiredMessages(now: Long)
 
-    @Query("SELECT * FROM messages WHERE cloudMsgDocId = :cloudDocId LIMIT 1")
-    suspend fun getMessageByCloudDocId(cloudDocId: String): MessageEntity?
-
-    @Query("UPDATE messages SET reaction = :reaction WHERE id = :id")
-    suspend fun updateMessageReaction(id: Long, reaction: String?)
-
-    @Query("UPDATE messages SET isPinned = :isPinned WHERE id = :id")
-    suspend fun updateMessagePinned(id: Long, isPinned: Boolean)
-
-    @Query("UPDATE messages SET text = :text, cipherText = :cipherText, isEdited = 1 WHERE id = :id")
-    suspend fun updateMessageText(id: Long, text: String, cipherText: String)
-
     // Contacts
     @Query("SELECT * FROM contacts ORDER BY name ASC")
     fun getAllContacts(): Flow<List<ContactEntity>>
+
+    @Query("SELECT * FROM contacts WHERE isBlocked = 1")
+    fun getBlockedContacts(): Flow<List<ContactEntity>>
+
+    @Query("SELECT isBlocked FROM contacts WHERE handle = :handle LIMIT 1")
+    suspend fun isContactBlocked(handle: String): Boolean?
+
+    @Query("UPDATE contacts SET isBlocked = :isBlocked WHERE handle = :handle")
+    suspend fun setContactBlocked(handle: String, isBlocked: Boolean)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertContact(contact: ContactEntity)
 
     @Query("DELETE FROM contacts WHERE handle = :handle")
     suspend fun deleteContact(handle: String)
-
-    @Query("UPDATE contacts SET isBlocked = :isBlocked WHERE handle = :handle")
-    suspend fun setContactBlocked(handle: String, isBlocked: Boolean)
 
     // Statuses
     @Query("SELECT * FROM statuses ORDER BY timestamp DESC")
@@ -89,6 +122,9 @@ interface MessengerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCall(call: CallEntity): Long
+
+    @Query("DELETE FROM calls WHERE id = :id")
+    suspend fun deleteCall(id: Long)
 
     @Query("DELETE FROM calls")
     suspend fun clearCallLogs()
@@ -105,4 +141,7 @@ interface MessengerDao {
 
     @Query("DELETE FROM statuses")
     suspend fun wipeStatuses()
+
+    @Query("DELETE FROM contacts")
+    suspend fun wipeContacts()
 }
