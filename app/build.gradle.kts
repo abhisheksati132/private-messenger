@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.privatemessenger.wzvyq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 8
-    versionName = "1.5.0"
+    versionCode = 9
+    versionName = "1.5.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -115,12 +115,11 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
-  // Firestore & Firebase Auth + Google Sign-In via Credential Manager:
   implementation(libs.firebase.firestore)
-  implementation(libs.firebase.messaging)
-  implementation(libs.firebase.auth)
   implementation(libs.firebase.database)
+  implementation(libs.firebase.messaging)
   implementation(libs.firebase.storage)
+  implementation(libs.firebase.auth)
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)

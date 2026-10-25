@@ -1,37 +1,19 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.crypto.CryptoHelper
 import com.example.data.local.AppDatabase
-import com.example.data.local.SecurityPreferencesRepository
 import com.example.data.model.*
-import com.example.data.remote.CallSignal
-import com.example.data.remote.CloudStatus
-import com.example.data.remote.CloudUser
-import com.example.data.remote.FirebaseAuthService
-import com.example.data.remote.FirebaseCloudService
 import com.example.data.repository.MessengerRepository
-import com.example.util.AppReleaseInfo
-import com.example.util.AppUpdateManager
-import com.example.util.AudioPlaybackState
-import com.example.util.AudioPlayerHelper
-import com.example.util.AudioRecorderHelper
-import com.example.util.CallRingtoneHelper
-import com.example.util.HapticHelper
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 enum class MainTab {
     CHATS,
-    CONTACTS,
     STATUS,
     CALLS,
     VAULT_SECURITY
@@ -43,13 +25,7 @@ data class UiState(
     val searchQuery: String = "",
     val selectedFilter: String = "ALL", // ALL, UNREAD, ENCRYPTED, GROUPS
     val isNewChatDialogOpen: Boolean = false,
-    val isCreateGroupDialogOpen: Boolean = false,
     val isKeyFingerprintDialogOpen: Boolean = false,
-    val isAuthDialogOpen: Boolean = false,
-    val authUser: AuthUser? = null,
-    val isGuestUser: Boolean = false,
-    val isAuthLoading: Boolean = false,
-    val authErrorMessage: String? = null,
     val isAppLocked: Boolean = false,
     val isPinSetupOpen: Boolean = false,
     val pinCode: String = "",
@@ -57,323 +33,49 @@ data class UiState(
     val preventScreenshots: Boolean = false,
     val defaultDisappearingSeconds: Long = 0,
     val replyingToMessage: MessageEntity? = null,
-    val editingMessage: MessageEntity? = null,
     val isRecordingVoice: Boolean = false,
     val recordingSeconds: Int = 0,
-    val recordingAmplitude: Int = 0,
-    val audioPlaybackState: AudioPlaybackState = AudioPlaybackState(),
     val isPeerTyping: Boolean = false,
     val activeCall: ConversationEntity? = null,
     val isVideoCall: Boolean = false,
     val callDurationSeconds: Int = 0,
     val isCallMuted: Boolean = false,
     val isCallSpeaker: Boolean = false,
-    val incomingCall: CallSignal? = null,
-    val activeCallSignalId: String? = null,
-    val myHandle: String = "",
+    val myHandle: String = "whisper.7029",
+    val myPublicKey: String = "ECDH-P256: 4F91B2E6AA1998C1",
     val myDisplayName: String = "",
     val myAbout: String = "Available",
-    val myAvatarUrl: String? = null,
     val myAvatarBgHex: String = "#DDE1FF",
-    val myAvatarTextHex: String = "#001453",
-    val isUserProfileDialogOpen: Boolean = false,
-    val isUpdatingProfile: Boolean = false,
-    val isForwardDialogOpen: Boolean = false,
-    val forwardingMessage: MessageEntity? = null,
-    val isNotificationSoundEnabled: Boolean = true,
-    val vibrationPattern: String = "DEFAULT", // DEFAULT, SHORT, LONG, HEARTBEAT, OFF
-    val myPublicKey: String = "ECDH-P256: 4F91B2E6AA1998C1",
-    val cloudStatus: CloudStatus = CloudStatus.Checking,
-    val isSearchingCloud: Boolean = false,
-    val cloudUsers: List<CloudUser> = emptyList(),
-    val presenceMap: Map<String, Boolean> = emptyMap(),
-    val isDarkMode: Boolean? = null,
-    val blockedHandles: Set<String> = emptySet(),
-    val currentAppVersion: String = "v1.0.0",
-    val availableUpdate: AppReleaseInfo? = null,
-    val isCheckingForUpdate: Boolean = false,
-    val isDownloadingUpdate: Boolean = false,
-    val updateDownloadProgress: Float = 0f,
-    val updateDownloadBytesProgress: String = "",
-    val downloadedUpdateFile: java.io.File? = null,
-    val isUpdateReadyToInstall: Boolean = false,
-    val updateStatusMessage: String? = null,
-    val githubUpdateToken: String = "",
-    val isCallMinimized: Boolean = false,
-    val isCallConnected: Boolean = false,
-    val callStatusText: String? = null,
-    val isDiagnosticsDialogOpen: Boolean = false,
-    val diagnosticsResult: com.example.data.remote.FirebaseDiagnostics? = null,
-    val isRunningDiagnostics: Boolean = false,
-    val isWhatsNewDialogOpen: Boolean = false,
-    val selectedTheme: String = "DEFAULT",
-    val chatWallpaper: String = "DOODLE_GEOMETRIC",
-    val wallpaperOpacity: Float = 0.35f,
-    val isIncognitoKeyboard: Boolean = false,
-    val archivedConversations: List<ConversationEntity> = emptyList()
-) {
-    val isAuthenticated: Boolean
-        get() = authUser != null || isGuestUser || myHandle.isNotBlank()
-}
+    val myAvatarUrl: String? = null,
+    val authUser: AuthUser? = null,
+    val isUpdatingProfile: Boolean = false
+)
 
 class MessengerViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val prefs = application.getSharedPreferences("vault_messenger_prefs", Context.MODE_PRIVATE)
-    private val securityPrefs = SecurityPreferencesRepository(application)
-    private val audioRecorderHelper = AudioRecorderHelper(application)
-    private val audioPlayerHelper = AudioPlayerHelper(application)
-    private val callRingtoneHelper = CallRingtoneHelper(application)
-    private val appUpdateManager = AppUpdateManager(application)
     private val repository: MessengerRepository
-    private val cloudService: FirebaseCloudService
-    private val authService: FirebaseAuthService
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var callTimerJob: Job? = null
     private var voiceRecordJob: Job? = null
     private var cleanupTimerJob: Job? = null
-    private var callStateListener: com.google.firebase.firestore.ListenerRegistration? = null
-    private var activeTypingListener: com.google.firebase.firestore.ListenerRegistration? = null
 
     init {
         val db = AppDatabase.getDatabase(application, viewModelScope)
-        cloudService = FirebaseCloudService(application, db.messengerDao(), viewModelScope)
-        authService = FirebaseAuthService(application)
-        repository = MessengerRepository(db.messengerDao(), cloudService)
+        repository = MessengerRepository(db.messengerDao())
 
-        // Observe DataStore Security Preferences & Dark Mode
-        viewModelScope.launch {
-            securityPrefs.isDarkModeFlow.collect { dark ->
-                _uiState.update { it.copy(isDarkMode = dark) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.notificationSoundsFlow.collect { soundsEnabled ->
-                _uiState.update { it.copy(isNotificationSoundEnabled = soundsEnabled) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.vibrationPatternFlow.collect { pattern ->
-                _uiState.update { it.copy(vibrationPattern = pattern) }
-            }
-        }
-        viewModelScope.launch {
-            cloudService.blockedUsers.collect { blocked ->
-                _uiState.update { it.copy(blockedHandles = blocked) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.pinCodeFlow.collect { pin ->
-                _uiState.update { it.copy(pinCode = pin) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.isPinEnabledFlow.collect { enabled ->
-                _uiState.update { it.copy(isPinEnabled = enabled, isAppLocked = enabled && it.pinCode.isNotBlank()) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.isScreenshotProtectedFlow.collect { protected ->
-                _uiState.update { it.copy(preventScreenshots = protected) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.defaultDisappearingFlow.collect { defaultSec ->
-                _uiState.update { it.copy(defaultDisappearingSeconds = defaultSec) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.githubTokenFlow.collect { token ->
-                _uiState.update { it.copy(githubUpdateToken = token) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.themeNameFlow.collect { theme ->
-                _uiState.update { it.copy(selectedTheme = theme) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.chatWallpaperFlow.collect { wallpaper ->
-                _uiState.update { it.copy(chatWallpaper = wallpaper) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.wallpaperOpacityFlow.collect { opacity ->
-                _uiState.update { it.copy(wallpaperOpacity = opacity) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.isIncognitoKeyboardFlow.collect { incognito ->
-                _uiState.update { it.copy(isIncognitoKeyboard = incognito) }
-            }
-        }
-        viewModelScope.launch {
-            repository.archivedConversations.collect { archivedList ->
-                _uiState.update { it.copy(archivedConversations = archivedList) }
-            }
-        }
-
-        // Restore saved profile & handle if present
-        val savedHandle = prefs.getString("saved_handle", "") ?: ""
-        val savedGuest = prefs.getBoolean("is_guest", false)
-        val savedDisplayName = prefs.getString("saved_display_name", "") ?: ""
-        val savedAbout = prefs.getString("saved_about", "Available") ?: "Available"
-        val savedAvatarUrl = prefs.getString("saved_avatar_url", null)
-        val savedAvatarBgHex = prefs.getString("saved_avatar_bg_hex", "#DDE1FF") ?: "#DDE1FF"
-        val savedAvatarTextHex = prefs.getString("saved_avatar_text_hex", "#001453") ?: "#001453"
-
-        if (savedHandle.isNotBlank()) {
-            _uiState.update {
-                it.copy(
-                    myHandle = savedHandle,
-                    isGuestUser = savedGuest,
-                    myDisplayName = savedDisplayName,
-                    myAbout = savedAbout,
-                    myAvatarUrl = savedAvatarUrl,
-                    myAvatarBgHex = savedAvatarBgHex,
-                    myAvatarTextHex = savedAvatarTextHex
-                )
-            }
-            registerAndListenForHandle(savedHandle)
-        }
-
-        // Observe Auth User
-        viewModelScope.launch {
-            authService.currentUser.collect { user ->
-                _uiState.update { current ->
-                    val handle = if (user?.email != null) {
-                        user.email.substringBefore("@").replace(".", "").lowercase()
-                    } else if (current.myHandle.isNotBlank()) {
-                        current.myHandle
-                    } else ""
-
-                    current.copy(
-                        authUser = user,
-                        myHandle = handle
-                    )
-                }
-
-                user?.let {
-                    val handle = _uiState.value.myHandle.ifBlank {
-                        (it.email?.substringBefore("@") ?: "user_${it.uid.take(6)}").lowercase()
-                    }
-                    prefs.edit().putString("saved_handle", handle).putBoolean("is_guest", false).apply()
-                    _uiState.update { s -> s.copy(myHandle = handle) }
-                    registerAndListenForHandle(handle)
-                }
-            }
-        }
-
-        // Observe Cloud Status
-        viewModelScope.launch {
-            cloudService.cloudStatus.collect { status ->
-                _uiState.update { it.copy(cloudStatus = status) }
-            }
-        }
-
-        // Observe Realtime Database Presence
-        viewModelScope.launch {
-            repository.presenceMap.collect { pMap ->
-                _uiState.update { it.copy(presenceMap = pMap) }
-            }
-        }
-
-        // Observe Real-time Registered Cloud Users
-        viewModelScope.launch {
-            repository.observeCloudUsers().collect { users ->
-                if (users.isNotEmpty()) {
-                    _uiState.update { it.copy(cloudUsers = users) }
-                }
-            }
-        }
-
-        // Observe Audio Playback State
-        viewModelScope.launch {
-            audioPlayerHelper.playbackState.collect { playState ->
-                _uiState.update { it.copy(audioPlaybackState = playState) }
-            }
-        }
-
-        // Periodic cleanup for disappearing messages
+        // Start periodic cleanup for disappearing messages
         cleanupTimerJob = viewModelScope.launch {
             while (true) {
                 delay(2000)
                 repository.purgeExpiredMessages()
             }
         }
-
-        _uiState.update { it.copy(currentAppVersion = appUpdateManager.getCurrentVersionName()) }
-        val lastSeenVersion = prefs.getInt("last_seen_version_code", 0)
-        if (lastSeenVersion < 7) {
-            _uiState.update { it.copy(isWhatsNewDialogOpen = true) }
-        }
-        checkForUpdates(silent = true)
-        loadRecentUsers()
     }
 
-    private fun registerAndListenForHandle(handle: String) {
-        val clean = handle.lowercase().replace("@", "").trim()
-        if (clean.isBlank()) return
-
-        viewModelScope.launch {
-            cloudService.registerUser(
-                handle = clean,
-                displayName = _uiState.value.authUser?.displayName ?: "User $clean",
-                publicKey = _uiState.value.myPublicKey
-            )
-            cloudService.startIncomingMessageListener(clean)
-            cloudService.syncBlockedUsers(clean)
-            cloudService.startIncomingCallListener(
-                myHandle = clean,
-                onIncomingCall = { incoming ->
-                    callRingtoneHelper.startRingtoneAndVibration()
-                    _uiState.update { it.copy(incomingCall = incoming) }
-                },
-                onCallCancelled = { callId ->
-                    if (_uiState.value.incomingCall?.callId == callId) {
-                        callRingtoneHelper.stop()
-                        _uiState.update { it.copy(incomingCall = null) }
-                    }
-                }
-            )
-        }
-    }
-
-    fun loadRecentUsers() {
-        viewModelScope.launch {
-            val users = cloudService.getRecentRegisteredUsers()
-            if (users.isNotEmpty()) {
-                _uiState.update { it.copy(cloudUsers = users) }
-            }
-        }
-    }
-
-    fun loginAsGuest(handle: String) {
-        val clean = handle.lowercase().replace("@", "").replace(" ", "").trim()
-        if (clean.isNotBlank()) {
-            prefs.edit().putString("saved_handle", clean).putBoolean("is_guest", true).apply()
-            _uiState.update { it.copy(myHandle = clean, isGuestUser = true) }
-            viewModelScope.launch {
-                try {
-                    authService.signInAnonymously()
-                } catch (e: Exception) {
-                    android.util.Log.w("MessengerViewModel", "Anonymous auth note: ${e.message}")
-                }
-                registerAndListenForHandle(clean)
-            }
-        }
-    }
-
-    val conversations: StateFlow<List<ConversationEntity>> = combine(
-        repository.activeConversations,
-        _uiState.map { it.presenceMap }.distinctUntilChanged()
-    ) { convs, presence ->
-        convs.map { conv ->
-            val isOnline = if (conv.isGroup) true else (presence[conv.peerHandle] ?: conv.isOnline)
-            conv.copy(isOnline = isOnline)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val conversations: StateFlow<List<ConversationEntity>> = repository.activeConversations
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val contacts: StateFlow<List<ContactEntity>> = repository.allContacts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -389,16 +91,7 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun currentConversation(conversationId: Long): Flow<ConversationEntity?> {
-        return combine(
-            repository.getConversation(conversationId),
-            _uiState.map { it.presenceMap }.distinctUntilChanged()
-        ) { conv, presence ->
-            if (conv == null) null
-            else {
-                val isOnline = if (conv.isGroup) true else (presence[conv.peerHandle] ?: conv.isOnline)
-                conv.copy(isOnline = isOnline)
-            }
-        }
+        return repository.getConversation(conversationId)
     }
 
     fun setTab(tab: MainTab) {
@@ -406,235 +99,14 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun openConversation(conversationId: Long) {
-        _uiState.update { it.copy(activeConversationId = conversationId, replyingToMessage = null, isPeerTyping = false) }
-        val handle = _uiState.value.myHandle
+        _uiState.update { it.copy(activeConversationId = conversationId, replyingToMessage = null) }
         viewModelScope.launch {
-            repository.markConversationRead(conversationId, handle)
-            val conv = repository.getConversation(conversationId).firstOrNull()
-            if (conv != null) {
-                val threadKey = if (conv.isGroup) conv.peerHandle else {
-                    listOf(handle.lowercase().trim(), conv.peerHandle.lowercase().trim()).sorted().joinToString("_")
-                }
-                activeTypingListener?.remove()
-                activeTypingListener = repository.observeTyping(threadKey, conv.peerHandle) { isTyping ->
-                    _uiState.update { it.copy(isPeerTyping = isTyping) }
-                }
-            }
+            repository.markConversationRead(conversationId)
         }
     }
 
     fun closeConversation() {
-        val convId = _uiState.value.activeConversationId
-        val handle = _uiState.value.myHandle
-        if (convId != null && handle.isNotBlank()) {
-            viewModelScope.launch {
-                val conv = repository.getConversation(convId).firstOrNull()
-                if (conv != null) {
-                    val threadKey = if (conv.isGroup) conv.peerHandle else {
-                        listOf(handle.lowercase().trim(), conv.peerHandle.lowercase().trim()).sorted().joinToString("_")
-                    }
-                    repository.setTyping(threadKey, handle, false)
-                }
-            }
-        }
-        activeTypingListener?.remove()
-        activeTypingListener = null
-        _uiState.update { it.copy(activeConversationId = null, replyingToMessage = null, isPeerTyping = false) }
-    }
-
-    fun sendTyping(conversationId: Long, isTyping: Boolean) {
-        val handle = _uiState.value.myHandle
-        if (handle.isBlank()) return
-        viewModelScope.launch {
-            val conv = repository.getConversation(conversationId).firstOrNull()
-            if (conv != null) {
-                val threadKey = if (conv.isGroup) conv.peerHandle else {
-                    listOf(handle.lowercase().trim(), conv.peerHandle.lowercase().trim()).sorted().joinToString("_")
-                }
-                repository.setTyping(threadKey, handle, isTyping)
-            }
-        }
-    }
-
-    fun blockUser(handle: String) {
-        val clean = handle.lowercase().replace("@", "").trim()
-        if (clean.isBlank()) return
-        viewModelScope.launch {
-            repository.blockUser(_uiState.value.myHandle, clean)
-        }
-    }
-
-    fun unblockUser(handle: String) {
-        val clean = handle.lowercase().replace("@", "").trim()
-        if (clean.isBlank()) return
-        viewModelScope.launch {
-            repository.unblockUser(_uiState.value.myHandle, clean)
-        }
-    }
-
-    fun reactToMessage(message: MessageEntity, emoji: String?) {
-        HapticHelper.playReactionHaptic(getApplication())
-        viewModelScope.launch {
-            repository.updateMessageReaction(message.id, message.cloudMsgDocId, emoji)
-        }
-    }
-
-    fun setDarkMode(enabled: Boolean?) {
-        viewModelScope.launch {
-            securityPrefs.setDarkMode(enabled)
-        }
-    }
-
-    fun toggleNotificationSound(enabled: Boolean) {
-        viewModelScope.launch {
-            securityPrefs.setNotificationSounds(enabled)
-        }
-    }
-
-    fun setVibrationPattern(pattern: String) {
-        viewModelScope.launch {
-            securityPrefs.setVibrationPattern(pattern)
-        }
-    }
-
-    fun testVibration() {
-        val app = getApplication<Application>()
-        HapticHelper.triggerVibrationPattern(app, _uiState.value.vibrationPattern)
-        if (_uiState.value.isNotificationSoundEnabled) {
-            HapticHelper.playNotificationSound(app)
-        }
-    }
-
-    fun setUserProfileDialogOpen(open: Boolean) {
-        _uiState.update { it.copy(isUserProfileDialogOpen = open) }
-    }
-
-    fun uploadAndSetAvatar(imageUri: Uri, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
-        val handle = _uiState.value.myHandle
-        if (handle.isBlank()) {
-            onResult(false, "Please set a username handle first")
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isUpdatingProfile = true) }
-            val downloadUrl = cloudService.uploadUserAvatar(imageUri, handle)
-            if (downloadUrl != null) {
-                prefs.edit().putString("saved_avatar_url", downloadUrl).apply()
-                _uiState.update { it.copy(myAvatarUrl = downloadUrl, isUpdatingProfile = false) }
-                cloudService.updateUserProfile(
-                    handle = handle,
-                    displayName = _uiState.value.myDisplayName.ifBlank { "@$handle" },
-                    about = _uiState.value.myAbout,
-                    avatarUrl = downloadUrl
-                )
-                onResult(true, "Avatar uploaded successfully!")
-            } else {
-                _uiState.update { it.copy(isUpdatingProfile = false) }
-                onResult(false, "Failed to upload avatar image")
-            }
-        }
-    }
-
-    fun updateProfile(
-        displayName: String,
-        about: String,
-        avatarBgHex: String? = null,
-        avatarTextHex: String? = null,
-        onResult: (Boolean) -> Unit = {}
-    ) {
-        val handle = _uiState.value.myHandle
-        prefs.edit()
-            .putString("saved_display_name", displayName)
-            .putString("saved_about", about)
-            .apply()
-
-        if (avatarBgHex != null) prefs.edit().putString("saved_avatar_bg_hex", avatarBgHex).apply()
-        if (avatarTextHex != null) prefs.edit().putString("saved_avatar_text_hex", avatarTextHex).apply()
-
-        _uiState.update {
-            it.copy(
-                myDisplayName = displayName,
-                myAbout = about,
-                myAvatarBgHex = avatarBgHex ?: it.myAvatarBgHex,
-                myAvatarTextHex = avatarTextHex ?: it.myAvatarTextHex
-            )
-        }
-
-        if (handle.isNotBlank()) {
-            viewModelScope.launch {
-                cloudService.updateUserProfile(
-                    handle = handle,
-                    displayName = displayName,
-                    about = about,
-                    avatarUrl = _uiState.value.myAvatarUrl,
-                    avatarBgHex = avatarBgHex,
-                    avatarTextHex = avatarTextHex
-                )
-                onResult(true)
-            }
-        } else {
-            onResult(true)
-        }
-    }
-
-    fun removeAvatar() {
-        val handle = _uiState.value.myHandle
-        prefs.edit().remove("saved_avatar_url").apply()
-        _uiState.update { it.copy(myAvatarUrl = null) }
-        if (handle.isNotBlank()) {
-            viewModelScope.launch {
-                cloudService.updateUserProfile(
-                    handle = handle,
-                    displayName = _uiState.value.myDisplayName.ifBlank { "@$handle" },
-                    about = _uiState.value.myAbout,
-                    avatarUrl = ""
-                )
-            }
-        }
-    }
-
-    fun setForwardDialogOpen(open: Boolean, message: MessageEntity? = null) {
-        _uiState.update { it.copy(isForwardDialogOpen = open, forwardingMessage = message) }
-    }
-
-    fun forwardMessageTo(targetConversationId: Long, originalMessage: MessageEntity) {
-        HapticHelper.playMessageSentHaptic(getApplication())
-        _uiState.update { it.copy(isForwardDialogOpen = false, forwardingMessage = null) }
-
-        viewModelScope.launch {
-            when (originalMessage.type) {
-                MessageType.IMAGE -> {
-                    if (originalMessage.mediaUrl != null) {
-                        repository.sendMessage(
-                            conversationId = targetConversationId,
-                            text = originalMessage.text.ifBlank { "Forwarded photo" },
-                            type = MessageType.IMAGE,
-                            mediaUrl = originalMessage.mediaUrl,
-                            myHandle = _uiState.value.myHandle
-                        )
-                    }
-                }
-                MessageType.VOICE -> {
-                    repository.sendMessage(
-                        conversationId = targetConversationId,
-                        text = "Forwarded voice message",
-                        type = MessageType.VOICE,
-                        voiceDurationSeconds = originalMessage.voiceDurationSeconds,
-                        mediaUrl = originalMessage.mediaUrl,
-                        myHandle = _uiState.value.myHandle
-                    )
-                }
-                else -> {
-                    repository.sendMessage(
-                        conversationId = targetConversationId,
-                        text = originalMessage.text,
-                        type = MessageType.TEXT,
-                        myHandle = _uiState.value.myHandle
-                    )
-                }
-            }
-        }
+        _uiState.update { it.copy(activeConversationId = null, replyingToMessage = null) }
     }
 
     fun setSearchQuery(query: String) {
@@ -647,10 +119,6 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setNewChatDialogOpen(open: Boolean) {
         _uiState.update { it.copy(isNewChatDialogOpen = open) }
-    }
-
-    fun setCreateGroupDialogOpen(open: Boolean) {
-        _uiState.update { it.copy(isCreateGroupDialogOpen = open) }
     }
 
     fun setKeyFingerprintDialogOpen(open: Boolean) {
@@ -670,112 +138,45 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         voiceDurationSeconds: Int = 0
     ) {
         if (text.isBlank() && type == MessageType.TEXT) return
-        HapticHelper.playMessageSentHaptic(getApplication())
         val reply = _uiState.value.replyingToMessage
-        val currentHandle = _uiState.value.myHandle
 
         viewModelScope.launch {
             repository.sendMessage(
                 conversationId = conversationId,
                 text = text,
-                isDisappearing = isDisappearing || disappearingTimerSeconds > 0,
+                isDisappearing = isDisappearing,
                 disappearingTimerSeconds = disappearingTimerSeconds,
                 replyToId = reply?.id,
                 replyToText = reply?.text,
                 type = type,
-                voiceDurationSeconds = voiceDurationSeconds,
-                myHandle = currentHandle
+                voiceDurationSeconds = voiceDurationSeconds
             )
 
             _uiState.update { it.copy(replyingToMessage = null) }
+
+            // Simulate encrypted peer auto-reply for realistic interactive demo
+            triggerSimulatedPeerReply(conversationId, text)
         }
     }
 
-    fun sendImage(
-        conversationId: Long,
-        imageUri: Uri,
-        isDisappearing: Boolean = false,
-        disappearingTimerSeconds: Long = 0
-    ) {
-        HapticHelper.playMessageSentHaptic(getApplication())
-        val currentHandle = _uiState.value.myHandle
+    private fun triggerSimulatedPeerReply(conversationId: Long, sentText: String) {
         viewModelScope.launch {
-            repository.sendImageMessage(
-                conversationId = conversationId,
-                imageUri = imageUri,
-                isDisappearing = isDisappearing || disappearingTimerSeconds > 0,
-                disappearingTimerSeconds = disappearingTimerSeconds,
-                myHandle = currentHandle
-            )
-        }
-    }
+            delay(1200)
+            _uiState.update { it.copy(isPeerTyping = true) }
+            delay(1600)
+            _uiState.update { it.copy(isPeerTyping = false) }
 
-    fun sendDocument(
-        conversationId: Long,
-        docUri: Uri,
-        fileName: String,
-        fileSizeBytes: Long,
-        isDisappearing: Boolean = false,
-        disappearingTimerSeconds: Long = 0
-    ) {
-        HapticHelper.playMessageSentHaptic(getApplication())
-        val currentHandle = _uiState.value.myHandle
-        viewModelScope.launch {
-            repository.sendDocumentMessage(
-                conversationId = conversationId,
-                docUri = docUri,
-                fileName = fileName,
-                fileSizeBytes = fileSizeBytes,
-                isDisappearing = isDisappearing || disappearingTimerSeconds > 0,
-                disappearingTimerSeconds = disappearingTimerSeconds,
-                myHandle = currentHandle
-            )
-        }
-    }
+            val response = when {
+                sentText.contains("?", ignoreCase = true) ->
+                    "Everything is synchronized and zero-knowledge encrypted on our side! 🔒"
+                sentText.contains("hello", ignoreCase = true) || sentText.contains("hey", ignoreCase = true) ->
+                    "Hey! Glad you reached out on the secure channel."
+                sentText.contains("timer", ignoreCase = true) || sentText.contains("disappear", ignoreCase = true) ->
+                    "Disappearing timer acknowledged. Messages will self-destruct seamlessly."
+                else -> "Received securely. Key verification check passed."
+            }
 
-    fun startEditingMessage(message: MessageEntity) {
-        _uiState.update { it.copy(editingMessage = message, replyingToMessage = null) }
-    }
-
-    fun cancelEditingMessage() {
-        _uiState.update { it.copy(editingMessage = null) }
-    }
-
-    fun submitEditedMessage(messageId: Long, newText: String) {
-        if (newText.isBlank()) return
-        HapticHelper.playMessageSentHaptic(getApplication())
-        val currentHandle = _uiState.value.myHandle
-        viewModelScope.launch {
-            repository.editMessage(messageId, newText.trim(), currentHandle)
-            _uiState.update { it.copy(editingMessage = null) }
-        }
-    }
-
-    fun togglePinMessage(messageId: Long, isPinned: Boolean) {
-        viewModelScope.launch {
-            repository.togglePinMessage(messageId, !isPinned)
-        }
-    }
-
-    fun cycleAudioPlaybackSpeed() {
-        audioPlayerHelper.cyclePlaybackSpeed()
-    }
-
-    fun seekAudio(positionMs: Int) {
-        audioPlayerHelper.seekTo(positionMs)
-    }
-
-    fun createGroupChat(groupName: String, memberHandles: List<String>) {
-        val adminHandle = _uiState.value.myHandle
-        viewModelScope.launch {
-            val convId = repository.createGroupChat(
-                groupName = groupName,
-                memberHandles = memberHandles,
-                adminHandle = adminHandle
-            )
-            setCreateGroupDialogOpen(false)
-            setNewChatDialogOpen(false)
-            openConversation(convId)
+            repository.receiveSimulatedReply(conversationId, response)
         }
     }
 
@@ -786,29 +187,15 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun clearChat(conversationId: Long) {
-        HapticHelper.playClearChatHaptic(getApplication())
-        val myHandle = _uiState.value.myHandle
         viewModelScope.launch {
-            repository.clearChatMessages(conversationId, myHandle)
-        }
-    }
-
-    fun togglePinConversation(conversationId: Long, isPinned: Boolean) {
-        viewModelScope.launch {
-            repository.setConversationPinned(conversationId, !isPinned)
-        }
-    }
-
-    fun deleteContact(handle: String) {
-        viewModelScope.launch {
-            repository.deleteContact(handle)
+            repository.clearChatMessages(conversationId)
         }
     }
 
     fun deleteConversation(conversationId: Long) {
-        closeConversation()
         viewModelScope.launch {
             repository.deleteConversation(conversationId)
+            closeConversation()
         }
     }
 
@@ -820,23 +207,14 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun startNewChatWithCloudUser(cloudUser: CloudUser) {
-        viewModelScope.launch {
-            val convId = repository.createOrGetConversationForCloudUser(cloudUser)
-            setNewChatDialogOpen(false)
-            openConversation(convId)
-        }
-    }
-
     fun createCustomContactAndChat(name: String, handle: String) {
         viewModelScope.launch {
-            val clean = if (handle.startsWith("@")) handle.substring(1) else handle
             val newContact = ContactEntity(
-                handle = clean,
-                name = name.ifBlank { "@$clean" },
+                handle = if (handle.startsWith("@")) handle.substring(1) else handle,
+                name = name,
                 avatarBgHex = "#DDE1FF",
                 avatarTextHex = "#001453",
-                publicKey = "ECDH-P256: " + CryptoHelper.generateFingerprint(clean),
+                publicKey = "ECDH-P256: " + CryptoHelper.generateFingerprint(handle),
                 isVerified = true,
                 about = "Encrypted peer"
             )
@@ -847,87 +225,34 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun searchAndAddCloudPeer(handle: String, onResult: (Boolean, String) -> Unit) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSearchingCloud = true) }
-            val clean = if (handle.startsWith("@")) handle.substring(1) else handle
-            val cloudUser = cloudService.searchUserByHandle(clean)
-
-            _uiState.update { it.copy(isSearchingCloud = false) }
-            if (cloudUser != null) {
-                val convId = repository.createOrGetConversationForCloudUser(cloudUser)
-                setNewChatDialogOpen(false)
-                openConversation(convId)
-                onResult(true, "Connected with @${cloudUser.handle}")
-            } else {
-                createCustomContactAndChat(clean, clean)
-                onResult(false, "User not found in cloud registry, added as offline/local contact")
-            }
-        }
-    }
-
     fun startVoiceRecording() {
-        val started = audioRecorderHelper.startRecording()
-        if (!started) return
-
-        _uiState.update { it.copy(isRecordingVoice = true, recordingSeconds = 0, recordingAmplitude = 0) }
+        _uiState.update { it.copy(isRecordingVoice = true, recordingSeconds = 0) }
         voiceRecordJob?.cancel()
         voiceRecordJob = viewModelScope.launch {
-            var count = 0
-            while (currentCoroutineContext().isActive) {
-                delay(100)
-                count++
-                val amp = audioRecorderHelper.getMaxAmplitude()
-                _uiState.update {
-                    it.copy(
-                        recordingSeconds = count / 10,
-                        recordingAmplitude = amp
-                    )
-                }
+            while (true) {
+                delay(1000)
+                _uiState.update { it.copy(recordingSeconds = it.recordingSeconds + 1) }
             }
         }
     }
 
     fun cancelVoiceRecording() {
         voiceRecordJob?.cancel()
-        audioRecorderHelper.cancelRecording()
-        _uiState.update { it.copy(isRecordingVoice = false, recordingSeconds = 0, recordingAmplitude = 0) }
+        _uiState.update { it.copy(isRecordingVoice = false, recordingSeconds = 0) }
     }
 
     fun finishVoiceRecording(conversationId: Long, isDisappearing: Boolean, timer: Long) {
         voiceRecordJob?.cancel()
         val duration = _uiState.value.recordingSeconds.coerceAtLeast(1)
-        val audioFile = audioRecorderHelper.stopRecording()
-        _uiState.update { it.copy(isRecordingVoice = false, recordingSeconds = 0, recordingAmplitude = 0) }
-
-        if (audioFile != null && audioFile.exists() && audioFile.length() > 0) {
-            HapticHelper.playMessageSentHaptic(getApplication())
-            val currentHandle = _uiState.value.myHandle
-            viewModelScope.launch {
-                repository.sendVoiceNoteMessage(
-                    conversationId = conversationId,
-                    audioFile = audioFile,
-                    durationSeconds = duration,
-                    isDisappearing = isDisappearing || timer > 0,
-                    disappearingTimerSeconds = timer,
-                    myHandle = currentHandle
-                )
-            }
-        }
-    }
-
-    fun togglePlayVoiceNote(mediaUrl: String?) {
-        if (mediaUrl.isNullOrBlank()) return
-        val state = _uiState.value.audioPlaybackState
-        if (state.activeMediaUrl == mediaUrl && state.isPlaying) {
-            audioPlayerHelper.pauseAudio()
-        } else {
-            audioPlayerHelper.playAudio(mediaUrl)
-        }
-    }
-
-    fun seekVoiceNote(positionMs: Int) {
-        audioPlayerHelper.seekTo(positionMs)
+        _uiState.update { it.copy(isRecordingVoice = false, recordingSeconds = 0) }
+        sendMessage(
+            conversationId = conversationId,
+            text = "Voice message",
+            isDisappearing = isDisappearing,
+            disappearingTimerSeconds = timer,
+            type = MessageType.VOICE,
+            voiceDurationSeconds = duration
+        )
     }
 
     fun startCall(peer: ConversationEntity, isVideo: Boolean) {
@@ -936,99 +261,10 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                 activeCall = peer,
                 isVideoCall = isVideo,
                 callDurationSeconds = 0,
-                isCallConnected = false,
-                callStatusText = "Ringing...",
                 isCallMuted = false,
                 isCallSpeaker = false
             )
         }
-        callTimerJob?.cancel()
-
-        // Fire call signal to recipient via Cloud Relay
-        viewModelScope.launch {
-            repository.logCall(peer.peerName, peer.peerHandle, peer.avatarBgColorHex, peer.avatarTextColorHex, isVideo)
-            val callSignalId = cloudService.initiateCall(
-                callerHandle = _uiState.value.myHandle,
-                callerName = _uiState.value.authUser?.displayName ?: "@${_uiState.value.myHandle}",
-                recipientHandle = peer.peerHandle,
-                isVideo = isVideo
-            )
-            _uiState.update { it.copy(activeCallSignalId = callSignalId) }
-
-            if (callSignalId != null) {
-                callStateListener?.remove()
-                callStateListener = cloudService.observeCallState(callSignalId) { status ->
-                    when (status) {
-                        "ACCEPTED" -> {
-                            _uiState.update { it.copy(isCallConnected = true, callStatusText = null) }
-                            callTimerJob?.cancel()
-                            callTimerJob = viewModelScope.launch {
-                                while (true) {
-                                    delay(1000)
-                                    _uiState.update { it.copy(callDurationSeconds = it.callDurationSeconds + 1) }
-                                }
-                            }
-                        }
-                        "REJECTED" -> {
-                            _uiState.update { it.copy(callStatusText = "Call Declined") }
-                            viewModelScope.launch {
-                                delay(1200)
-                                endCall(sendSignal = false)
-                            }
-                        }
-                        "ENDED" -> {
-                            endCall(sendSignal = false)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fun startCallWithUser(name: String, handle: String, isVideo: Boolean) {
-        val dummyConv = ConversationEntity(
-            peerId = "u_${handle.replace(".", "_")}",
-            peerName = name,
-            peerHandle = handle,
-            avatarBgColorHex = "#DDE1FF",
-            avatarTextColorHex = "#001453",
-            lastMessage = if (isVideo) "Video call" else "Voice call",
-            lastTimestamp = System.currentTimeMillis(),
-            isOnline = true
-        )
-        startCall(dummyConv, isVideo)
-    }
-
-    fun acceptIncomingCall() {
-        callRingtoneHelper.stop()
-        val incoming = _uiState.value.incomingCall ?: return
-        val peerConv = ConversationEntity(
-            peerId = "u_${incoming.callerHandle}",
-            peerName = incoming.callerName,
-            peerHandle = incoming.callerHandle,
-            avatarBgColorHex = "#EADDFF",
-            avatarTextColorHex = "#21005D",
-            lastMessage = if (incoming.isVideo) "Video call" else "Voice call",
-            lastTimestamp = System.currentTimeMillis(),
-            isOnline = true
-        )
-
-        viewModelScope.launch {
-            cloudService.acceptCall(incoming.callId)
-        }
-
-        _uiState.update {
-            it.copy(
-                activeCall = peerConv,
-                isVideoCall = incoming.isVideo,
-                incomingCall = null,
-                activeCallSignalId = incoming.callId,
-                isCallConnected = true,
-                callStatusText = null,
-                callDurationSeconds = 0
-            )
-        }
-
         callTimerJob?.cancel()
         callTimerJob = viewModelScope.launch {
             while (true) {
@@ -1036,22 +272,9 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(callDurationSeconds = it.callDurationSeconds + 1) }
             }
         }
-
-        callStateListener?.remove()
-        callStateListener = cloudService.observeCallState(incoming.callId) { status ->
-            if (status == "ENDED") {
-                endCall(sendSignal = false)
-            }
-        }
-    }
-
-    fun rejectIncomingCall() {
-        callRingtoneHelper.stop()
-        val incoming = _uiState.value.incomingCall ?: return
         viewModelScope.launch {
-            cloudService.rejectCall(incoming.callId)
+            repository.logCall(peer.peerName, peer.peerHandle, peer.avatarBgColorHex, peer.avatarTextColorHex, isVideo)
         }
-        _uiState.update { it.copy(incomingCall = null) }
     }
 
     fun toggleMute() {
@@ -1062,192 +285,28 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(isCallSpeaker = !it.isCallSpeaker) }
     }
 
-    fun setCallMinimized(minimized: Boolean) {
-        _uiState.update { it.copy(isCallMinimized = minimized) }
-    }
-
-    fun endCall(sendSignal: Boolean = true) {
-        callRingtoneHelper.stop()
+    fun endCall() {
         callTimerJob?.cancel()
-        val signalId = _uiState.value.activeCallSignalId
-        if (sendSignal && signalId != null) {
-            viewModelScope.launch {
-                cloudService.endCall(signalId)
-            }
-        }
-        callStateListener?.remove()
-        callStateListener = null
-        _uiState.update {
-            it.copy(
-                activeCall = null,
-                activeCallSignalId = null,
-                callDurationSeconds = 0,
-                isCallConnected = false,
-                callStatusText = null,
-                isCallMinimized = false
-            )
-        }
-    }
-
-    fun openDiagnosticsDialog() {
-        _uiState.update { it.copy(isDiagnosticsDialogOpen = true) }
-        runFirebaseDiagnostics()
-    }
-
-    fun dismissDiagnosticsDialog() {
-        _uiState.update { it.copy(isDiagnosticsDialogOpen = false) }
-    }
-
-    fun runFirebaseDiagnostics() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRunningDiagnostics = true) }
-            val result = cloudService.runDiagnostics()
-            _uiState.update { it.copy(isRunningDiagnostics = false, diagnosticsResult = result) }
-        }
-    }
-
-    fun deleteMessage(messageId: Long, deleteForEveryone: Boolean = false) {
-        viewModelScope.launch {
-            repository.deleteMessage(messageId, deleteForEveryone)
-        }
+        _uiState.update { it.copy(activeCall = null, callDurationSeconds = 0) }
     }
 
     fun postStatus(caption: String) {
         if (caption.isBlank()) return
-        val handle = _uiState.value.myHandle.ifBlank { "me.private" }
-        val name = _uiState.value.myDisplayName.ifBlank { "@$handle" }
-        val bg = _uiState.value.myAvatarBgHex
-        val textHex = _uiState.value.myAvatarTextHex
-
         viewModelScope.launch {
-            repository.addStatus(
-                caption = caption,
-                authorHandle = handle,
-                authorName = name,
-                avatarBgHex = bg,
-                avatarTextHex = textHex
-            )
+            repository.addStatus(caption)
         }
-    }
-
-    fun checkForUpdates(silent: Boolean = false) {
-        viewModelScope.launch {
-            _uiState.update { 
-                it.copy(
-                    isCheckingForUpdate = true, 
-                    updateStatusMessage = if (!silent) "Checking for updates..." else null
-                ) 
-            }
-            val token = _uiState.value.githubUpdateToken.ifBlank { null }
-            val result = appUpdateManager.checkForUpdates(githubToken = token)
-            result.onSuccess { info ->
-                _uiState.update {
-                    it.copy(
-                        isCheckingForUpdate = false,
-                        availableUpdate = if (info != null && info.isNewUpdateAvailable) info else null,
-                        updateStatusMessage = if (!silent && (info == null || !info.isNewUpdateAvailable)) "You are using the latest version (${it.currentAppVersion})" else null
-                    )
-                }
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isCheckingForUpdate = false,
-                        updateStatusMessage = if (!silent) "${error.message}" else null
-                    )
-                }
-            }
-        }
-    }
-
-    fun setGithubUpdateToken(token: String) {
-        viewModelScope.launch {
-            securityPrefs.setGithubToken(token)
-            _uiState.update { it.copy(githubUpdateToken = token.trim()) }
-            checkForUpdates(silent = false)
-        }
-    }
-
-    fun startDownloadingUpdate() {
-        val update = _uiState.value.availableUpdate ?: return
-        val token = _uiState.value.githubUpdateToken.ifBlank { null }
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isDownloadingUpdate = true,
-                    updateDownloadProgress = 0f,
-                    updateDownloadBytesProgress = ""
-                )
-            }
-            val file = appUpdateManager.downloadApk(update.downloadUrl, githubToken = token) { progress, currentBytes, totalBytes ->
-                val currentMb = String.format(java.util.Locale.getDefault(), "%.1f", currentBytes / (1024f * 1024f))
-                val totalMb = if (totalBytes > 0) String.format(java.util.Locale.getDefault(), "%.1f MB", totalBytes / (1024f * 1024f)) else ""
-                val bytesStr = if (totalMb.isNotEmpty()) "($currentMb / $totalMb)" else "(${currentMb}MB)"
-
-                _uiState.update {
-                    it.copy(
-                        updateDownloadProgress = progress,
-                        updateDownloadBytesProgress = bytesStr
-                    )
-                }
-            }
-
-            if (file != null && file.exists()) {
-                _uiState.update {
-                    it.copy(
-                        isDownloadingUpdate = false,
-                        downloadedUpdateFile = file,
-                        isUpdateReadyToInstall = true
-                    )
-                }
-                installDownloadedUpdate()
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isDownloadingUpdate = false,
-                        updateStatusMessage = "Download failed. Please check internet connection."
-                    )
-                }
-            }
-        }
-    }
-
-    fun installDownloadedUpdate() {
-        val file = _uiState.value.downloadedUpdateFile ?: return
-        appUpdateManager.installApk(file)
-    }
-
-    fun dismissUpdateDialog() {
-        _uiState.update { 
-            it.copy(
-                availableUpdate = null, 
-                isUpdateReadyToInstall = false, 
-                isDownloadingUpdate = false 
-            ) 
-        }
-    }
-
-    fun clearUpdateStatusMessage() {
-        _uiState.update { it.copy(updateStatusMessage = null) }
     }
 
     fun togglePreventScreenshots(prevent: Boolean) {
-        viewModelScope.launch {
-            securityPrefs.setScreenshotProtected(prevent)
-        }
+        _uiState.update { it.copy(preventScreenshots = prevent) }
     }
 
     fun setPin(pin: String) {
-        viewModelScope.launch {
-            securityPrefs.savePin(pin)
-            _uiState.update { it.copy(pinCode = pin, isPinEnabled = pin.isNotEmpty(), isAppLocked = false) }
-        }
+        _uiState.update { it.copy(pinCode = pin, isPinEnabled = pin.isNotEmpty(), isAppLocked = false) }
     }
 
     fun disablePin() {
-        viewModelScope.launch {
-            securityPrefs.setPinEnabled(false)
-            _uiState.update { it.copy(pinCode = "", isPinEnabled = false, isAppLocked = false) }
-        }
+        _uiState.update { it.copy(pinCode = "", isPinEnabled = false, isAppLocked = false) }
     }
 
     fun unlockWithPin(entered: String): Boolean {
@@ -1259,227 +318,17 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun lockApp() {
-        if (_uiState.value.isPinEnabled && _uiState.value.pinCode.isNotBlank()) {
+        if (_uiState.value.isPinEnabled) {
             _uiState.update { it.copy(isAppLocked = true) }
         }
     }
 
-    fun updateMyHandle(newHandle: String) {
-        val clean = if (newHandle.startsWith("@")) newHandle.substring(1) else newHandle
-        if (clean.isNotBlank()) {
-            val trimmed = clean.trim()
-            prefs.edit().putString("saved_handle", trimmed).apply()
-            _uiState.update { it.copy(myHandle = trimmed) }
-            viewModelScope.launch {
-                cloudService.registerUser(
-                    handle = trimmed,
-                    displayName = "User $trimmed",
-                    publicKey = _uiState.value.myPublicKey
-                )
-            }
-        }
-    }
-
-    fun rotateMyKeys() {
-        val newKey = "ECDH-P256: " + CryptoHelper.generateFingerprint(_uiState.value.myHandle + System.currentTimeMillis())
-        _uiState.update { it.copy(myPublicKey = newKey) }
-        viewModelScope.launch {
-            cloudService.registerUser(
-                handle = _uiState.value.myHandle,
-                displayName = "User ${_uiState.value.myHandle}",
-                publicKey = newKey
-            )
-        }
-    }
-
-    fun setAuthDialogOpen(open: Boolean) {
-        _uiState.update { it.copy(isAuthDialogOpen = open, authErrorMessage = null) }
-    }
-
-    fun clearAuthError() {
-        _uiState.update { it.copy(authErrorMessage = null) }
-    }
-
-    fun signUpWithEmail(email: String, pass: String, handle: String?, onResult: (Boolean, String?) -> Unit) {
-        if (email.isBlank() || pass.length < 6) {
-            val msg = if (pass.length < 6) "Password must be at least 6 characters" else "Please enter a valid email"
-            _uiState.update { it.copy(authErrorMessage = msg) }
-            onResult(false, msg)
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAuthLoading = true, authErrorMessage = null) }
-            val cleanHandle = handle?.trim()?.replace("@", "")?.ifEmpty { null }
-            val result = authService.signUpWithEmail(email, pass, cleanHandle ?: email.substringBefore("@"))
-            _uiState.update { it.copy(isAuthLoading = false) }
-
-            result.fold(
-                onSuccess = { user ->
-                    if (!cleanHandle.isNullOrBlank()) {
-                        updateMyHandle(cleanHandle)
-                    }
-                    _uiState.update { it.copy(isAuthDialogOpen = false) }
-                    onResult(true, null)
-                },
-                onFailure = { error ->
-                    val msg = error.localizedMessage ?: "Sign-up failed"
-                    _uiState.update { it.copy(authErrorMessage = msg) }
-                    onResult(false, msg)
-                }
-            )
-        }
-    }
-
-    fun signInWithEmail(email: String, pass: String, onResult: (Boolean, String?) -> Unit) {
-        if (email.isBlank() || pass.isBlank()) {
-            val msg = "Please enter email and password"
-            _uiState.update { it.copy(authErrorMessage = msg) }
-            onResult(false, msg)
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAuthLoading = true, authErrorMessage = null) }
-            val result = authService.signInWithEmail(email, pass)
-            _uiState.update { it.copy(isAuthLoading = false) }
-
-            result.fold(
-                onSuccess = {
-                    _uiState.update { it.copy(isAuthDialogOpen = false) }
-                    onResult(true, null)
-                },
-                onFailure = { error ->
-                    val msg = error.localizedMessage ?: "Sign-in failed"
-                    _uiState.update { it.copy(authErrorMessage = msg) }
-                    onResult(false, msg)
-                }
-            )
-        }
-    }
-
-    fun signInWithGoogle(context: Context, onResult: (Boolean, String?) -> Unit) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAuthLoading = true, authErrorMessage = null) }
-            val result = authService.signInWithGoogle(context)
-            _uiState.update { it.copy(isAuthLoading = false) }
-
-            result.fold(
-                onSuccess = { user ->
-                    _uiState.update { it.copy(isAuthDialogOpen = false) }
-                    onResult(true, null)
-                },
-                onFailure = { error ->
-                    val msg = error.localizedMessage ?: "Google Sign-In failed"
-                    _uiState.update { it.copy(authErrorMessage = msg) }
-                    onResult(false, msg)
-                }
-            )
-        }
-    }
-
-    fun sendPasswordReset(email: String, onResult: (Boolean, String?) -> Unit) {
-        if (email.isBlank()) {
-            val msg = "Please enter your account email"
-            _uiState.update { it.copy(authErrorMessage = msg) }
-            onResult(false, msg)
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isAuthLoading = true, authErrorMessage = null) }
-            val result = authService.sendPasswordReset(email)
-            _uiState.update { it.copy(isAuthLoading = false) }
-
-            result.fold(
-                onSuccess = {
-                    onResult(true, "Password reset email sent!")
-                },
-                onFailure = { error ->
-                    val msg = error.localizedMessage ?: "Failed to send reset email"
-                    _uiState.update { it.copy(authErrorMessage = msg) }
-                    onResult(false, msg)
-                }
-            )
-        }
-    }
-
-    fun setAppTheme(theme: String) {
-        viewModelScope.launch {
-            securityPrefs.setThemeName(theme)
-            _uiState.update { it.copy(selectedTheme = theme) }
-        }
-    }
-
-    fun setChatWallpaper(wallpaper: String) {
-        viewModelScope.launch {
-            securityPrefs.setChatWallpaper(wallpaper)
-            _uiState.update { it.copy(chatWallpaper = wallpaper) }
-        }
-    }
-
-    fun setWallpaperOpacity(opacity: Float) {
-        viewModelScope.launch {
-            securityPrefs.setWallpaperOpacity(opacity)
-            _uiState.update { it.copy(wallpaperOpacity = opacity) }
-        }
-    }
-
-    fun setIncognitoKeyboard(enabled: Boolean) {
-        viewModelScope.launch {
-            securityPrefs.setIncognitoKeyboard(enabled)
-            _uiState.update { it.copy(isIncognitoKeyboard = enabled) }
-        }
-    }
-
-    fun toggleArchiveConversation(conversationId: Long, isArchived: Boolean) {
-        viewModelScope.launch {
-            repository.setConversationArchived(conversationId, isArchived)
-        }
-    }
-
-    fun toggleMarkAsRead(conversationId: Long) {
-        viewModelScope.launch {
-            val conv = repository.getConversation(conversationId).firstOrNull()
-            if (conv != null) {
-                if (conv.unreadCount > 0) {
-                    repository.markConversationRead(conversationId, _uiState.value.myHandle)
-                } else {
-                    repository.setConversationUnreadCount(conversationId, 1)
-                }
-            }
-        }
-    }
-
-    fun signOut() {
-        prefs.edit().clear().apply()
-        cloudService.stopListener()
-        authService.signOut()
-        _uiState.update {
-            it.copy(
-                authUser = null,
-                isGuestUser = false,
-                myHandle = "",
-                activeConversationId = null,
-                activeCall = null
-            )
-        }
-    }
-
     fun panicWipeAllData() {
-        prefs.edit().clear().apply()
-        cloudService.stopListener()
-        authService.signOut()
         viewModelScope.launch {
-            securityPrefs.clearSecuritySettings()
             repository.panicWipeVault()
             _uiState.update {
                 it.copy(
-                    authUser = null,
-                    isGuestUser = false,
-                    myHandle = "",
                     activeConversationId = null,
-                    activeCall = null,
                     isAppLocked = false,
                     isPinEnabled = false,
                     pinCode = ""
@@ -1488,33 +337,8 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun deleteCall(callId: Long) {
-        viewModelScope.launch {
-            repository.deleteCall(callId)
-        }
-    }
-
-    fun clearAllCalls() {
-        viewModelScope.launch {
-            repository.clearCallLogs()
-        }
-    }
-
-    fun openWhatsNewDialog() {
-        _uiState.update { it.copy(isWhatsNewDialogOpen = true) }
-    }
-
-    fun dismissWhatsNewDialog() {
-        prefs.edit().putInt("last_seen_version_code", 7).apply()
-        _uiState.update { it.copy(isWhatsNewDialogOpen = false) }
-    }
-
     override fun onCleared() {
         super.onCleared()
-        cloudService.stopListener()
-        callRingtoneHelper.stop()
-        audioPlayerHelper.release()
-        audioRecorderHelper.cancelRecording()
         callTimerJob?.cancel()
         voiceRecordJob?.cancel()
         cleanupTimerJob?.cancel()

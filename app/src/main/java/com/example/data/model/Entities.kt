@@ -34,13 +34,13 @@ data class ConversationEntity(
     val isPinned: Boolean = false,
     val isArchived: Boolean = false,
     val isGroup: Boolean = false,
-    val groupMembers: String = "", // comma-separated handles for group chats
-    val groupAdminHandle: String = "",
     val disappearingTimerSeconds: Long = 0, // 0 = disabled, 30 = 30s, 86400 = 24h
     val isEncrypted: Boolean = true,
     val keyFingerprint: String = "8A:F2:1C:99:B4:63",
-    val cloudDocId: String? = null,
-    val avatarUrl: String? = null
+    val avatarUrl: String = "",
+    val groupMembers: String = "",
+    val groupAdminHandle: String = "",
+    val cloudDocId: String? = null
 )
 
 @Entity(tableName = "messages")
@@ -49,7 +49,7 @@ data class MessageEntity(
     val id: Long = 0,
     val conversationId: Long,
     val senderId: String,
-    val senderName: String? = null,
+    val senderName: String = "",
     val text: String,
     val cipherText: String = "",
     val timestamp: Long,
@@ -81,7 +81,15 @@ data class ContactEntity(
     val isVerified: Boolean = true,
     val about: String = "Available",
     val isBlocked: Boolean = false,
-    val avatarUrl: String? = null
+    val avatarUrl: String = ""
+)
+
+data class AuthUser(
+    val uid: String,
+    val email: String? = null,
+    val displayName: String? = null,
+    val photoUrl: String? = null,
+    val isAnonymous: Boolean = false
 )
 
 @Entity(tableName = "statuses")
@@ -111,12 +119,4 @@ data class CallEntity(
     val isMissed: Boolean,
     val isVideo: Boolean = false,
     val durationSeconds: Int = 0
-)
-
-data class AuthUser(
-    val uid: String,
-    val email: String? = null,
-    val displayName: String? = null,
-    val photoUrl: String? = null,
-    val isAnonymous: Boolean = false
 )
