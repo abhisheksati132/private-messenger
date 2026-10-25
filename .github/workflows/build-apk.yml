@@ -39,13 +39,14 @@ jobs:
       - name: Rename APK for direct download
         run: |
           mkdir -p release-apk
+          cp app/build/outputs/apk/debug/*.apk release-apk/private-messenger.apk
           cp app/build/outputs/apk/debug/*.apk release-apk/itas.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: itas-APK
-          path: release-apk/itas.apk
+          name: private-messenger-APK
+          path: release-apk/private-messenger.apk
           if-no-files-found: error
 
       - name: Extract Version
@@ -53,19 +54,31 @@ jobs:
         run: |
           VERSION=$(grep "versionName =" app/build.gradle.kts | head -1 | awk -F '"' '{print $2}')
           if [ -z "$VERSION" ]; then
-            VERSION="1.2.0"
+            VERSION="1.6.0"
           fi
           echo "VERSION=v$VERSION" >> $GITHUB_ENV
-          echo "Building itas version v$VERSION"
+          echo "Building Private Messenger version v$VERSION"
 
       - name: Create Direct GitHub Release (Raw .APK Download)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
           tag_name: ${{ env.VERSION }}
-          name: "itas ${{ env.VERSION }}"
-          body: "Direct APK build for itas ${{ env.VERSION }}. Download `itas.apk` below and install directly on your phone."
-          files: release-apk/itas.apk
+          name: "Private Messenger ${{ env.VERSION }}"
+          body: |
+            ### 🚀 Private Messenger ${{ env.VERSION }}
+            
+            **What's inside this release:**
+            * 🔐 **Full Authentication Engine:** Email & Password login/signup, Google One-Tap sign-in, and Guest mode.
+            * 🛡️ **Hardened Cryptography:** Authenticated AES-256-GCM encryption with fresh dynamic 12-byte IVs per transmission and PBKDF2 PIN hashing.
+            * 🔄 **In-App OTA Auto-Updater:** Check and download updates directly inside the app.
+            * 👤 **User Profiles & Avatars:** Real photo uploads to Firebase Storage, custom status chips, and identity fingerprints.
+            * 💬 **Rich Messaging:** Document sharing, dynamic audio waveforms, message editing, reactions, and media lightbox.
+            
+            Download `private-messenger.apk` (or `itas.apk`) below to install directly on your device.
+          files: |
+            release-apk/private-messenger.apk
+            release-apk/itas.apk
           make_latest: true
           prerelease: false
           generate_release_notes: false
