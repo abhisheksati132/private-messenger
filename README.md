@@ -1,16 +1,15 @@
-﻿<div align="center">
+<div align="center">
 
 # `itas`
-### Minimalist • Ultra-Fast • End-to-End Encrypted Private Messenger
+### Minimalist • Ultra-Fast • Authenticated AES-GCM Encrypted Private Messenger
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Encryption](https://img.shields.io/badge/Security-ECDH%20%2B%20AES--256--GCM-00C853?style=for-the-badge&logo=shield&logoColor=white)](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
-[![WebRTC](https://img.shields.io/badge/Calls-P2P%20WebRTC-FF6D00?style=for-the-badge&logo=webrtc&logoColor=white)](https://webrtc.org/)
 [![Architecture](https://img.shields.io/badge/Architecture-MVVM%20%2B%20Clean%20Arch-00BCD4?style=for-the-badge)](https://developer.android.com/topic/architecture)
 
 <p align="center">
-  <b>itas</b> is an ultra-minimalist, high-performance private messenger built for modern Android. Engineered with true zero-knowledge cryptography, fluid gesture physics, and an uncompromising AMOLED aesthetic, it delivers peer-to-peer secure messaging without telemetry, tracking, or UI clutter.
+  <b>itas</b> is an ultra-minimalist, high-performance private messenger built for modern Android. Engineered with authenticated AES-256-GCM encryption, fluid gesture physics, and an uncompromising AMOLED aesthetic, it delivers secure messaging without telemetry, tracking, or UI clutter.
 </p>
 
 </div>
@@ -19,9 +18,10 @@
 
 ## ⚡ Key Highlights & Features
 
-### 🛡️ 1. Zero-Knowledge Cryptography
-* **Curve25519 ECDH Key Exchange**: Direct peer-to-peer asynchronous key agreement with ephemeral secret negotiation.
-* **AES-256-GCM Stream Encryption**: Authenticated payload encryption ensuring complete confidentiality and tamper resistance.
+### 🛡️ 1. Cryptography & Security Engine
+* **NIST P-256 ECDH Key Agreement**: Asynchronous key agreement with ephemeral secret negotiation.
+* **Authenticated AES-256-GCM Encryption**: Authenticated payload encryption utilizing fresh 12-byte dynamic IVs per message and 128-bit authentication tags, preventing message tampering and oracle attacks.
+* **PBKDF2-HMAC-SHA256 PIN Protection**: 10,000-iteration key derivation to shield app-lock PINs against brute-force attacks.
 * **Safety Number Verification**: Visual and cryptographic safety number fingerprint matching for instant peer authenticity checks.
 
 ### 🎨 2. Pure AMOLED & Clean White Minimalist Design
@@ -35,8 +35,8 @@
 * **Hands-Free Slide-to-Lock**: Lock continuous recording mode with a single gesture.
 * **Quick Trash & Haptic Feedback**: Tactile haptic ticks on send, swipe-to-cancel, and reaction triggers.
 
-### 📞 4. Encrypted P2P Calling & Multitasking Mini-Call Overlay
-* **End-to-End Encrypted Voice & Video**: Low-latency direct media streaming powered by WebRTC.
+### 📞 4. Encrypted Call Signaling & Mini-Call Overlay
+* **End-to-End Call Signaling**: Real-time bidirectional call signaling coordinated over Cloud Firestore with incoming call notifications.
 * **Picture-in-Picture Mini-Call Pill**: Minimize active calls to a floating overlay (`🟢 02:14 • Peer`) and continue messaging across the app without interrupting conversations.
 
 ### 💖 5. iOS-Style Floating Reaction Dock & Fluid Interactions
@@ -65,11 +65,10 @@
 | **Language** | Kotlin (100% Coroutines & Flow) |
 | **UI Framework** | Jetpack Compose, Material 3, Compose Foundation Gestures |
 | **Architecture** | MVVM (Model-View-ViewModel), MVI State Pattern, Clean Architecture |
-| **Local Database** | Room SQLite ORM, SharedPreferences / Encrypted DataStore |
-| **Cryptography** | Android KeyStore, Curve25519 (ECDH), AES-256-GCM, SHA-256 |
+| **Local Database** | Room SQLite ORM, Jetpack DataStore Preferences |
+| **Cryptography** | Android KeyStore, ECDH (P-256), AES-256-GCM, PBKDF2-HMAC-SHA256, SHA-256 |
 | **Media & Audio** | Android `AudioRecord` / `AudioTrack`, Coil Compose for asynchronous image pipelines |
 | **Realtime & Cloud** | Firebase Cloud Firestore, Firebase Authentication, Cloud Storage, Firebase Cloud Messaging (FCM) |
-| **Calling Engine** | WebRTC Peer-to-Peer Audio/Video Streaming |
 | **Testing & CI/CD** | JUnit 4, Roborazzi UI Snapshot Testing, GitHub Actions Automated APK Delivery |
 
 ---

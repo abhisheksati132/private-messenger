@@ -51,6 +51,32 @@ class MessengerV140UnitTest {
     }
 
     @Test
+    fun testDynamicIV_producesDifferentCiphertextForSamePlaintext() {
+        val text = "Top Secret Transmission"
+        val cipher1 = CryptoHelper.encrypt(text)
+        val cipher2 = CryptoHelper.encrypt(text)
+
+        // With fresh 12-byte random IV per encryption, ciphertexts must NEVER be identical
+        assertNotEquals(cipher1, cipher2)
+
+        // Both must decrypt cleanly back to the identical plaintext
+        assertEquals(text, CryptoHelper.decrypt(cipher1))
+        assertEquals(text, CryptoHelper.decrypt(cipher2))
+    }
+
+    @Test
+    fun testPBKDF2_PinHashingAndVerification() {
+        val pin = "7492"
+        val hashed = CryptoHelper.hashPin(pin)
+
+        assertFalse(hashed == pin)
+        assertTrue(hashed.length >= 32)
+        assertTrue(CryptoHelper.verifyPin("7492", hashed))
+        assertFalse(CryptoHelper.verifyPin("0000", hashed))
+        assertFalse(CryptoHelper.verifyPin("1234", hashed))
+    }
+
+    @Test
     fun testFormatFileSize() {
         assertEquals("0 B", formatFileSize(0L))
         assertEquals("500.0 B", formatFileSize(500L))

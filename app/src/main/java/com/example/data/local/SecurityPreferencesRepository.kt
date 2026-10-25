@@ -79,8 +79,9 @@ class SecurityPreferencesRepository(private val context: Context) {
     }
 
     suspend fun savePin(pin: String) {
+        val hashed = if (pin.isNotBlank()) com.example.data.crypto.CryptoHelper.hashPin(pin) else ""
         context.dataStore.edit { preferences ->
-            preferences[KEY_PIN_CODE] = pin
+            preferences[KEY_PIN_CODE] = hashed
             preferences[KEY_PIN_ENABLED] = pin.isNotBlank()
         }
     }

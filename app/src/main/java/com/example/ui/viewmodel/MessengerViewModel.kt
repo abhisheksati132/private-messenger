@@ -1251,7 +1251,8 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun unlockWithPin(entered: String): Boolean {
-        if (entered == _uiState.value.pinCode || _uiState.value.pinCode.isEmpty()) {
+        val storedHash = _uiState.value.pinCode
+        if (storedHash.isBlank() || CryptoHelper.verifyPin(entered, storedHash)) {
             _uiState.update { it.copy(isAppLocked = false) }
             return true
         }
