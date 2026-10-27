@@ -68,12 +68,12 @@ jobs:
           body: |
             ### 🚀 Private Messenger ${{ env.VERSION }}
             
-            **What's inside this release:**
-            * 🔐 **Full Authentication Engine:** Email & Password login/signup, Google One-Tap sign-in, and Guest mode.
-            * 🛡️ **Hardened Cryptography:** Authenticated AES-256-GCM encryption with fresh dynamic 12-byte IVs per transmission and PBKDF2 PIN hashing.
-            * 🔄 **In-App OTA Auto-Updater:** Check and download updates directly inside the app.
-            * 👤 **User Profiles & Avatars:** Real photo uploads to Firebase Storage, custom status chips, and identity fingerprints.
-            * 💬 **Rich Messaging:** Document sharing, dynamic audio waveforms, message editing, reactions, and media lightbox.
+            **What's new in this release:**
+            * 🎨 **Simplified & Welcoming UI/UX:** Clean human-first design without technical jargon, sci-fi badges, or doodle clutter.
+            * 🔒 **Enhanced Privacy in Contacts:** Public registered directory removed. Only displays personal saved contacts; add friends directly by @handle.
+            * 🧭 **Streamlined Navigation:** Scrapped status feature; clean 4-tab bar (Chats, Contacts, Calls, Settings) with fixed top padding across all screens.
+            * ⚙️ **Refreshed Settings:** Clean standard categories with Screen Privacy, Private Keyboard, and collapsible Advanced Security.
+            * 🔄 **In-App Auto-Updates:** Check and download updates directly inside the app.
             
             Download `private-messenger.apk` (or `itas.apk`) below to install directly on your device.
           files: |
