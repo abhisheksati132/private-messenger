@@ -79,18 +79,13 @@ fun VaultSecurityScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
             ) {
                 Text(
                     text = "Settings",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = "Preferences, account & privacy",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -219,58 +214,7 @@ fun VaultSecurityScreen(
                 }
             }
 
-            // Firebase Cloud Health & Diagnostics Tile
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .clickable { onOpenFirebaseDiagnostics() },
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudSync,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Firebase Cloud Diagnostics",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Test Firestore, Storage & copy setup rules",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    FilledTonalButton(
-                        onClick = onOpenFirebaseDiagnostics,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("Test", fontSize = 12.sp)
-                    }
-                }
-            }
 
             // Section 1: Privacy & Security
             Text(
@@ -733,174 +677,10 @@ fun VaultSecurityScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                    // Color Theme Presets
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Palette,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Column {
-                                Text(
-                                    text = "Color Theme Preset",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Dynamic ambient color styling across chats and controls",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        val themes = listOf(
-                            Triple("DEFAULT", "Arctic Blue (Default)", Color(0xFF007AFF)), Triple("SLATE", "Slate Monochrome", Color(0xFF64748B)), Triple("SIGNAL", "Signal Emerald", Color(0xFF10B981)), Triple("TELEGRAM", "Ocean Navy", Color(0xFF5288C1))
-                        )
-
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            themes.forEach { (themeKey, title, accentColor) ->
-                                val isSelected = uiState.selectedTheme.equals(themeKey, ignoreCase = true) ||
-                                        (themeKey == "DEFAULT" && (uiState.selectedTheme.isBlank() || uiState.selectedTheme.equals("DEFAULT", ignoreCase = true)))
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable { onSetAppTheme(themeKey) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                    )
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(14.dp)
-                                                    .clip(CircleShape)
-                                                    .background(accentColor)
-                                            )
-                                            Text(
-                                                text = title,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "Selected",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                    // Chat Vector Wallpaper Engine
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Wallpaper,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Column {
-                                Text(
-                                    text = "Chat Vector Wallpaper",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Lightweight canvas-drawn doodle patterns in conversations",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        val wallpapers = listOf(
-                            "DOODLE_GEOMETRIC" to "Doodles",
-                            "MIDNIGHT_NEBULA" to "Nebula",
-                            "EMERALD_BOTANICAL" to "Emerald",
-                            "CYBER_GRID" to "Cyber Grid",
-                            "MINIMAL" to "Minimal"
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            wallpapers.forEach { (wpKey, label) ->
-                                val isSelected = uiState.chatWallpaper.equals(wpKey, ignoreCase = true) ||
-                                        (wpKey == "DOODLE_GEOMETRIC" && uiState.chatWallpaper.equals("doodles", ignoreCase = true))
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { onSetChatWallpaper(wpKey) },
-                                    label = { Text(label, fontSize = 11.sp) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-
-                        // Wallpaper Opacity Slider
-                        Column(modifier = Modifier.padding(top = 4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Pattern Opacity",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "${(uiState.wallpaperOpacity * 100).toInt()}%",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Slider(
-                                value = uiState.wallpaperOpacity,
-                                onValueChange = { onSetWallpaperOpacity(it) },
-                                valueRange = 0.05f..0.50f,
-                                steps = 9
-                            )
-                        }
-                    }
                 }
             }
+
+
 
             // Section 5: App Version & In-App Updates
             Text(

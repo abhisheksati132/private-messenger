@@ -129,7 +129,7 @@ fun ChatListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -839,4 +839,5 @@ fun ConversationListItem(
         }
     }
 }
+
 

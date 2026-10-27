@@ -69,7 +69,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.*
 import com.example.ui.components.AvatarView
-import com.example.ui.components.ChatWallpaperBackground
 import com.example.ui.components.MediaLightboxViewer
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.SuccessGreen
@@ -80,12 +79,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
 
-enum class ChatWallpaper {
-    MINIMAL,
-    SOFT_GRADIENT,
-    SLATE_GRID,
-    MIDNIGHT
-}
 
 fun formatMessageDateHeader(timestamp: Long): String {
     val now = Calendar.getInstance()
@@ -180,10 +173,8 @@ fun ConversationScreen(
     var currentPinnedIndex by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
     var showTimerDialog by remember { mutableStateOf(false) }
-    var showWallpaperDialog by remember { mutableStateOf(false) }
     var showAttachmentSheet by remember { mutableStateOf(false) }
     var showSharedMediaSheet by remember { mutableStateOf(false) }
-    var selectedWallpaper by remember { mutableStateOf(ChatWallpaper.MINIMAL) }
     var selectedMessageForCipher by remember { mutableStateOf<MessageEntity?>(null) }
     var selectedMessageForReaction by remember { mutableStateOf<MessageEntity?>(null) }
     var messageToDelete by remember { mutableStateOf<MessageEntity?>(null) }
@@ -286,19 +277,6 @@ fun ConversationScreen(
         } else 1
     }
 
-    val wallpaperModifier = when (selectedWallpaper) {
-        ChatWallpaper.MINIMAL -> Modifier.background(MaterialTheme.colorScheme.background)
-        ChatWallpaper.SOFT_GRADIENT -> Modifier.background(
-            Brush.verticalGradient(
-                listOf(
-                    MaterialTheme.colorScheme.background,
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-            )
-        )
-        ChatWallpaper.SLATE_GRID -> Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-        ChatWallpaper.MIDNIGHT -> Modifier.background(Color(0xFF060608))
-    }
 
     Scaffold(
         modifier = modifier
@@ -556,16 +534,6 @@ fun ConversationScreen(
                                     }
                                 )
 
-                                DropdownMenuItem(
-                                    text = { Text("Chat Wallpaper") },
-                                    onClick = {
-                                        showMenu = false
-                                        showWallpaperDialog = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Wallpaper, contentDescription = null)
-                                    }
-                                )
 
                                 DropdownMenuItem(
                                     text = { Text("Export Transcript") },
@@ -613,12 +581,8 @@ fun ConversationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            ChatWallpaperBackground(
-                wallpaper = uiState.chatWallpaper,
-                opacity = uiState.wallpaperOpacity,
-                modifier = Modifier.fillMaxSize()
-            )
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -1199,52 +1163,6 @@ fun ConversationScreen(
         }
     }
 
-    // Wallpaper Selector Dialog
-    if (showWallpaperDialog) {
-        AlertDialog(
-            onDismissRequest = { showWallpaperDialog = false },
-            title = { Text("Chat Wallpaper") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ChatWallpaper.values().forEach { wp ->
-                        val isSelected = selectedWallpaper == wp
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedWallpaper = wp
-                                    showWallpaperDialog = false
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = when (wp) {
-                                        ChatWallpaper.MINIMAL -> "Minimalist Monochrome"
-                                        ChatWallpaper.SOFT_GRADIENT -> "Soft Tonal Gradient"
-                                        ChatWallpaper.SLATE_GRID -> "Slate Neutral"
-                                        ChatWallpaper.MIDNIGHT -> "Midnight OLED"
-                                    },
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                                if (isSelected) {
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showWallpaperDialog = false }) { Text("Close") }
-            }
-        )
-    }
 
     // Attachment Options Sheet
     if (showAttachmentSheet) {

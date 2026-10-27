@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,12 +31,12 @@ import com.example.ui.components.AvatarView
 @Composable
 fun ContactsScreen(
     contacts: List<ContactEntity>,
-    cloudUsers: List<CloudUser>,
+    cloudUsers: List<CloudUser> = emptyList(),
     myHandle: String,
     presenceMap: Map<String, Boolean> = emptyMap(),
     blockedHandles: Set<String> = emptySet(),
     onStartChatWithContact: (ContactEntity) -> Unit,
-    onStartChatWithCloudUser: (CloudUser) -> Unit,
+    onStartChatWithCloudUser: (CloudUser) -> Unit = {},
     onStartCallWithUser: (name: String, handle: String, isVideo: Boolean) -> Unit,
     onAddCustomContact: (name: String, handle: String) -> Unit,
     onSearchCloudPeer: (handle: String, onResult: (Boolean, String) -> Unit) -> Unit,
@@ -53,18 +52,7 @@ fun ContactsScreen(
     var newName by remember { mutableStateOf("") }
     var lookupMessage by remember { mutableStateOf<String?>(null) }
 
-    // Combine local contacts and registered cloud users (excluding self)
-    val filteredCloudUsers = remember(cloudUsers, searchQuery, myHandle) {
-        val cleanMe = myHandle.lowercase().replace("@", "").trim()
-        cloudUsers
-            .filter { it.handle.lowercase() != cleanMe }
-            .filter {
-                if (searchQuery.isBlank()) true
-                else it.displayName.contains(searchQuery, ignoreCase = true) ||
-                        it.handle.contains(searchQuery, ignoreCase = true)
-            }
-    }
-
+    // Privacy First: Only display saved contacts
     val filteredContacts = remember(contacts, searchQuery, myHandle) {
         val cleanMe = myHandle.lowercase().replace("@", "").trim()
         contacts
@@ -80,6 +68,7 @@ fun ContactsScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("screen_contacts"),
+        contentWindowInsets = WindowInsets.statusBars,
         topBar = {
             TopAppBar(
                 title = {
@@ -87,10 +76,11 @@ fun ContactsScreen(
                         Text(
                             text = "Contacts",
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "${filteredCloudUsers.size + filteredContacts.size} contacts",
+                            text = if (filteredContacts.size == 1) "1 contact" else "${filteredContacts.size} contacts",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -115,8 +105,9 @@ fun ContactsScreen(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = RoundedCornerShape(20.dp),
                 modifier = Modifier
-                    .padding(bottom = 72.dp)
+                    .padding(bottom = 16.dp)
                     .testTag("fab_add_contact")
             ) {
                 Icon(Icons.Default.PersonAdd, contentDescription = "Add Contact")
@@ -132,7 +123,7 @@ fun ContactsScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search by name or @handle...") },
+                placeholder = { Text("Search saved contacts...", fontSize = 14.sp) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.Search,
@@ -150,72 +141,74 @@ fun ContactsScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(20.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    unfocusedBorderColor = Color.Transparent
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
                     .testTag("input_search_contacts")
             )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Cloud Registered Users
-                if (filteredCloudUsers.isNotEmpty()) {
-                    item {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            if (filteredContacts.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(64.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Public,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "Registered Cloud Users (${filteredCloudUsers.size})",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.People,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "No contacts match \"$searchQuery\"" else "No saved contacts",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Add contacts by their unique @handle to start private chats and calls.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Button(
+                            onClick = { showAddDialog = true },
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add Contact")
                         }
                     }
-
-                    items(filteredCloudUsers, key = { "cloud_${it.handle}" }) { user ->
-                        val isOnline = presenceMap[user.handle] ?: user.isOnline
-                        val isBlocked = blockedHandles.contains(user.handle.lowercase())
-                        CloudContactCard(
-                            user = user.copy(isOnline = isOnline),
-                            isBlocked = isBlocked,
-                            onChatClick = { onStartChatWithCloudUser(user) },
-                            onVoiceCallClick = { onStartCallWithUser(user.displayName, user.handle, false) },
-                            onVideoCallClick = { onStartCallWithUser(user.displayName, user.handle, true) },
-                            onBlockClick = { onBlockUser(user.handle) },
-                            onUnblockClick = { onUnblockUser(user.handle) }
-                        )
-                    }
                 }
-
-                // Local Saved Contacts
-                if (filteredContacts.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Saved Contacts (${filteredContacts.size})",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-                        )
-                    }
-
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     items(filteredContacts, key = { "local_${it.handle}" }) { contact ->
-                        val isOnline = presenceMap[contact.handle] ?: true
+                        val isOnline = presenceMap[contact.handle] ?: false
                         val isBlocked = contact.isBlocked || blockedHandles.contains(contact.handle.lowercase())
                         LocalContactCard(
                             contact = contact,
@@ -230,96 +223,61 @@ fun ContactsScreen(
                         )
                     }
                 }
-
-                if (filteredCloudUsers.isEmpty() && filteredContacts.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 48.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PersonSearch,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Text(
-                                    text = if (searchQuery.isNotEmpty()) "No users matching \"$searchQuery\"" else "No contacts found",
-                                    fontWeight = FontWeight.SemiBold,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    text = "Tap the + button to search and connect with any peer @handle.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
     }
 
-    // Add / Search Peer Dialog
+    // Clean Add Contact Dialog (Privacy Preserving)
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = {
                 showAddDialog = false
                 lookupMessage = null
             },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.PersonAdd,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text("Add Contact")
-                }
+                Text("Add Contact", fontWeight = FontWeight.Bold)
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Search and connect to any peer on the Firestore cloud directory:",
+                        text = "Enter your friend's exact username or handle to connect privately.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     OutlinedTextField(
-                        value = newHandle,
-                        onValueChange = {
-                            newHandle = it.lowercase().replace(" ", "")
-                            lookupMessage = null
-                        },
-                        label = { Text("Peer @Handle") },
-                        placeholder = { Text("e.g. alice.9942") },
-                        prefix = { Text("@") },
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Display Name") },
+                        placeholder = { Text("e.g. Alex") },
                         singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("input_contact_screen_handle")
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
-                        value = newName,
-                        onValueChange = { newName = it },
-                        label = { Text("Display Nickname (Optional)") },
-                        placeholder = { Text("e.g. Alice") },
+                        value = newHandle,
+                        onValueChange = { newHandle = it.replace("@", "").trim().lowercase() },
+                        label = { Text("Username / Handle") },
+                        placeholder = { Text("e.g. alex") },
+                        prefix = { Text("@") },
                         singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("input_contact_screen_name")
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
                     )
 
-                    if (lookupMessage != null) {
+                    lookupMessage?.let { msg ->
                         Text(
-                            text = lookupMessage!!,
-                            fontSize = 12.sp,
+                            text = msg,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
@@ -327,29 +285,31 @@ fun ContactsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val cleanHandle = newHandle.trim().replace("@", "")
-                        val cleanName = newName.trim().ifEmpty { "@$cleanHandle" }
+                        val cleanHandle = newHandle.trim()
+                        val cleanName = newName.ifBlank { "@$cleanHandle" }.trim()
                         if (cleanHandle.isNotBlank()) {
                             onSearchCloudPeer(cleanHandle) { success, msg ->
                                 lookupMessage = msg
                                 if (success) {
-                                    onAddCustomContact(cleanName, cleanHandle)
                                     showAddDialog = false
+                                    newHandle = ""
+                                    newName = ""
+                                    lookupMessage = null
                                 }
                             }
                         }
                     },
                     enabled = newHandle.isNotBlank() && !isSearchingCloud,
-                    modifier = Modifier.testTag("btn_save_new_contact")
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isSearchingCloud) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Connect & Save")
+                        Text("Add Contact")
                     }
                 }
             },
@@ -368,131 +328,9 @@ fun ContactsScreen(
 }
 
 @Composable
-fun CloudContactCard(
-    user: CloudUser,
-    isBlocked: Boolean = false,
-    onChatClick: () -> Unit,
-    onVoiceCallClick: () -> Unit,
-    onVideoCallClick: () -> Unit,
-    onBlockClick: () -> Unit = {},
-    onUnblockClick: () -> Unit = {}
-) {
-    var showBlockMenu by remember { mutableStateOf(false) }
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { if (!isBlocked) onChatClick() }
-            .testTag("card_cloud_user_${user.handle}"),
-        shape = RoundedCornerShape(14.dp),
-        color = if (isBlocked) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            AvatarView(
-                name = user.displayName,
-                bgHex = if (isBlocked) "#B00020" else user.avatarBgHex,
-                textHex = if (isBlocked) "#FFFFFF" else user.avatarTextHex,
-                size = 40.dp,
-                imageUrl = user.avatarUrl,
-                isOnline = if (isBlocked) false else user.isOnline
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = user.displayName,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    color = if (isBlocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = if (isBlocked) "Blocked" else if (user.isOnline) "@${user.handle} • online" else "@${user.handle}",
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    color = if (isBlocked) MaterialTheme.colorScheme.error else if (user.isOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (!isBlocked) {
-                    IconButton(onClick = onVoiceCallClick, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = "Voice Call",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    IconButton(onClick = onVideoCallClick, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Videocam,
-                            contentDescription = "Video Call",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                Box {
-                    IconButton(onClick = { showBlockMenu = true }, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More user options",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showBlockMenu,
-                        onDismissRequest = { showBlockMenu = false }
-                    ) {
-                        if (isBlocked) {
-                            DropdownMenuItem(
-                                text = { Text("Unblock User") },
-                                onClick = {
-                                    showBlockMenu = false
-                                    onUnblockClick()
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            )
-                        } else {
-                            DropdownMenuItem(
-                                text = { Text("Block User", color = MaterialTheme.colorScheme.error) },
-                                onClick = {
-                                    showBlockMenu = false
-                                    onBlockClick()
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Block, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun LocalContactCard(
     contact: ContactEntity,
-    isOnline: Boolean = true,
+    isOnline: Boolean = false,
     isBlocked: Boolean = false,
     onChatClick: () -> Unit,
     onVoiceCallClick: () -> Unit,
@@ -506,26 +344,26 @@ fun LocalContactCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable { if (!isBlocked) onChatClick() }
             .testTag("card_contact_${contact.handle}"),
-        shape = RoundedCornerShape(14.dp),
-        color = if (isBlocked) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+        shape = RoundedCornerShape(16.dp),
+        color = if (isBlocked) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             AvatarView(
                 name = contact.name,
                 bgHex = if (isBlocked) "#B00020" else contact.avatarBgHex,
                 textHex = if (isBlocked) "#FFFFFF" else contact.avatarTextHex,
-                size = 40.dp,
+                size = 44.dp,
                 imageUrl = contact.avatarUrl,
                 isOnline = isOnline && !isBlocked
             )
@@ -535,7 +373,7 @@ fun LocalContactCard(
             ) {
                 Text(
                     text = if (isBlocked) "${contact.name} (Blocked)" else contact.name,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isBlocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

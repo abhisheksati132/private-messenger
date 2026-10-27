@@ -31,9 +31,8 @@ import kotlinx.coroutines.launch
 
 enum class MainTab {
     CHATS,
-    CONTACTS,
-    STATUS,
     CALLS,
+    CONTACTS,
     VAULT_SECURITY
 }
 
@@ -279,14 +278,7 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        // Observe Real-time Registered Cloud Users
-        viewModelScope.launch {
-            repository.observeCloudUsers().collect { users ->
-                if (users.isNotEmpty()) {
-                    _uiState.update { it.copy(cloudUsers = users) }
-                }
-            }
-        }
+        // Privacy: Do not auto-observe public directory
 
         // Observe Audio Playback State
         viewModelScope.launch {
@@ -1521,3 +1513,5 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         cleanupTimerJob?.cancel()
     }
 }
+
+

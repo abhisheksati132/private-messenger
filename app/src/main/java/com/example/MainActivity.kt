@@ -63,7 +63,6 @@ class MainActivity : ComponentActivity() {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val conversations by viewModel.conversations.collectAsStateWithLifecycle()
             val contacts by viewModel.contacts.collectAsStateWithLifecycle()
-            val statuses by viewModel.statuses.collectAsStateWithLifecycle()
             val calls by viewModel.calls.collectAsStateWithLifecycle()
 
             val isDarkTheme = uiState.isDarkMode ?: isSystemInDarkTheme()
@@ -273,6 +272,7 @@ class MainActivity : ComponentActivity() {
                             // Main Tabs Navigation (Chats, Contacts, Status, Calls, Vault)
                             Scaffold(
                                 modifier = Modifier.fillMaxSize(),
+                                contentWindowInsets = WindowInsets(0, 0, 0, 0),
                                 bottomBar = {
                                     CleanBottomNavBar(
                                         activeTab = uiState.activeTab,
@@ -283,7 +283,7 @@ class MainActivity : ComponentActivity() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(innerPadding)
+                                        .padding(bottom = innerPadding.calculateBottomPadding())
                                 ) {
                                     AnimatedContent(
                                         targetState = uiState.activeTab,
@@ -347,12 +347,6 @@ class MainActivity : ComponentActivity() {
                                                     onUnblockUser = { handle -> viewModel.unblockUser(handle) },
                                                     onDeleteContact = { handle -> viewModel.deleteContact(handle) },
                                                     isSearchingCloud = uiState.isSearchingCloud
-                                                )
-                                            }
-                                            MainTab.STATUS -> {
-                                                StatusScreen(
-                                                    statuses = statuses,
-                                                    onPostStatus = { text -> viewModel.postStatus(text) }
                                                 )
                                             }
                                             MainTab.CALLS -> {
@@ -657,3 +651,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+

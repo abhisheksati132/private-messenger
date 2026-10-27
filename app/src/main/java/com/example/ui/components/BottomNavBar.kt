@@ -65,13 +65,6 @@ fun CleanBottomNavBar(
             testTag = "nav_contacts_tab"
         ),
         NavItem(
-            tab = MainTab.STATUS,
-            label = "Status",
-            selectedIcon = Icons.Filled.Update,
-            unselectedIcon = Icons.Outlined.Update,
-            testTag = "nav_status_tab"
-        ),
-        NavItem(
             tab = MainTab.CALLS,
             label = "Calls",
             selectedIcon = Icons.Filled.Phone,
@@ -166,4 +159,5 @@ fun CleanBottomNavBar(
         }
     }
 }
+
 
