@@ -11,16 +11,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+// Default Soft Slate & Arctic Blue Dark Color Scheme
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
-    onPrimary = Color(0xFF09090B),
+    onPrimary = Color(0xFFFFFFFF),
     primaryContainer = DarkPrimaryContainer,
     onPrimaryContainer = DarkOnPrimaryContainer,
-    secondary = Color(0xFFE4E4E7),
-    onSecondary = Color(0xFF09090B),
-    secondaryContainer = Color(0xFF1E1E1E),
-    onSecondaryContainer = Color(0xFFFAFAFA),
-    tertiary = Color(0xFFA1A1AA),
+    secondary = Color(0xFF388EFE),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFF1E293B),
+    onSecondaryContainer = Color(0xFFF8FAFC),
+    tertiary = Color(0xFF94A3B8),
     background = DarkBackground,
     onBackground = DarkOnSurface,
     surface = DarkSurface,
@@ -33,16 +34,17 @@ private val DarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFF450A0A)
 )
 
+// Default Soft Slate & Arctic Blue Light Color Scheme
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryLight,
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = PrimaryContainerLight,
     onPrimaryContainer = OnPrimaryContainerLight,
-    secondary = Color(0xFF27272A),
+    secondary = Color(0xFF0284C7),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = SecondaryContainerLight,
     onSecondaryContainer = OnSecondaryContainerLight,
-    tertiary = Color(0xFF71717A),
+    tertiary = Color(0xFF64748B),
     background = LightBackground,
     onBackground = LightOnSurface,
     surface = LightSurface,
@@ -55,6 +57,7 @@ private val LightColorScheme = lightColorScheme(
     errorContainer = ErrorContainer
 )
 
+// Clean Ocean Navy Theme (Telegram Style)
 private val TelegramDarkColorScheme = darkColorScheme(
     primary = Color(0xFF5288C1),
     onPrimary = Color(0xFFFFFFFF),
@@ -77,46 +80,48 @@ private val TelegramDarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFF450A0A)
 )
 
+// Clean Emerald Green Theme (Signal Style)
 private val SignalEmeraldColorScheme = darkColorScheme(
-    primary = Color(0xFF32A880),
+    primary = Color(0xFF10B981),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFF165B43),
-    onPrimaryContainer = Color(0xFFD6F5E8),
-    secondary = Color(0xFF54D3A2),
-    onSecondary = Color(0xFF081C15),
-    secondaryContainer = Color(0xFF1B3B30),
-    onSecondaryContainer = Color(0xFFE0F7ED),
-    tertiary = Color(0xFF86AFA0),
-    background = Color(0xFF0A1813),
-    onBackground = Color(0xFFF2F9F5),
-    surface = Color(0xFF11261F),
-    onSurface = Color(0xFFF2F9F5),
-    surfaceVariant = Color(0xFF1B3B30),
-    onSurfaceVariant = Color(0xFFA5C5B8),
-    outline = Color(0xFF265243),
-    outlineVariant = Color(0xFF153328),
+    primaryContainer = Color(0xFF065F46),
+    onPrimaryContainer = Color(0xFFD1FAE5),
+    secondary = Color(0xFF34D399),
+    onSecondary = Color(0xFF064E3B),
+    secondaryContainer = Color(0xFF064E3B),
+    onSecondaryContainer = Color(0xFFE0F2FE),
+    tertiary = Color(0xFF6EE7B7),
+    background = Color(0xFF062016),
+    onBackground = Color(0xFFF2FDF7),
+    surface = Color(0xFF0B2E21),
+    onSurface = Color(0xFFF2FDF7),
+    surfaceVariant = Color(0xFF134231),
+    onSurfaceVariant = Color(0xFFA7F3D0),
+    outline = Color(0xFF1A5A43),
+    outlineVariant = Color(0xFF0E3829),
     error = ErrorRed,
     errorContainer = Color(0xFF450A0A)
 )
 
-private val CyberpunkNeonColorScheme = darkColorScheme(
-    primary = Color(0xFFBD34FE),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFF5B1F8C),
-    onPrimaryContainer = Color(0xFFF6E8FF),
-    secondary = Color(0xFF00E5FF),
-    onSecondary = Color(0xFF0B061A),
-    secondaryContainer = Color(0xFF241544),
-    onSecondaryContainer = Color(0xFFE2F9FF),
-    tertiary = Color(0xFFFF2A85),
-    background = Color(0xFF090414),
-    onBackground = Color(0xFFF6F0FF),
-    surface = Color(0xFF130B29),
-    onSurface = Color(0xFFF6F0FF),
-    surfaceVariant = Color(0xFF241544),
-    onSurfaceVariant = Color(0xFFC4B8E2),
-    outline = Color(0xFF432977),
-    outlineVariant = Color(0xFF221240),
+// Clean Slate Monochrome Theme
+private val SlateMonochromeColorScheme = darkColorScheme(
+    primary = Color(0xFFE2E8F0),
+    onPrimary = Color(0xFF0F172A),
+    primaryContainer = Color(0xFF334155),
+    onPrimaryContainer = Color(0xFFF8FAFC),
+    secondary = Color(0xFF94A3B8),
+    onSecondary = Color(0xFF0F172A),
+    secondaryContainer = Color(0xFF1E293B),
+    onSecondaryContainer = Color(0xFFF8FAFC),
+    tertiary = Color(0xFF64748B),
+    background = Color(0xFF020617),
+    onBackground = Color(0xFFF8FAFC),
+    surface = Color(0xFF0F172A),
+    onSurface = Color(0xFFF8FAFC),
+    surfaceVariant = Color(0xFF1E293B),
+    onSurfaceVariant = Color(0xFF94A3B8),
+    outline = Color(0xFF334155),
+    outlineVariant = Color(0xFF1E293B),
     error = ErrorRed,
     errorContainer = Color(0xFF450A0A)
 )
@@ -134,9 +139,9 @@ fun MyApplicationTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> when (themeName.uppercase()) {
-            "TELEGRAM_NAVY", "TELEGRAM" -> TelegramDarkColorScheme
-            "SIGNAL_EMERALD", "SIGNAL" -> SignalEmeraldColorScheme
-            "CYBERPUNK_NEON", "CYBERPUNK" -> CyberpunkNeonColorScheme
+            "TELEGRAM_NAVY", "TELEGRAM", "OCEAN" -> TelegramDarkColorScheme
+            "SIGNAL_EMERALD", "SIGNAL", "EMERALD" -> SignalEmeraldColorScheme
+            "SLATE_MONOCHROME", "MONOCHROME", "SLATE" -> SlateMonochromeColorScheme
             else -> DarkColorScheme
         }
         else -> LightColorScheme

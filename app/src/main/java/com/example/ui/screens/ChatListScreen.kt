@@ -766,6 +766,14 @@ fun ConversationListItem(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (conversation.isEncrypted) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Encrypted",
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
                         if (conversation.isPinned) {
                             Icon(
                                 imageVector = Icons.Default.PushPin,
@@ -831,3 +839,4 @@ fun ConversationListItem(
         }
     }
 }
+

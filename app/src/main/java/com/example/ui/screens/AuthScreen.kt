@@ -83,7 +83,7 @@ fun AuthScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Security,
+                    imageVector = Icons.Default.ChatBubble,
                     contentDescription = "App Logo",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(36.dp)
@@ -100,7 +100,7 @@ fun AuthScreen(
             )
 
             Text(
-                text = "Fast, private messaging",
+                text = "Simple, private messaging for everyone",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -496,4 +496,6 @@ fun AuthScreen(
         }
     }
 }
+
+
 

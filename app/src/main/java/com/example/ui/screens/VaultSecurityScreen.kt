@@ -763,10 +763,7 @@ fun VaultSecurityScreen(
                         }
 
                         val themes = listOf(
-                            Triple("DEFAULT", "AMOLED Black", Color(0xFF00E5FF)),
-                            Triple("TELEGRAM", "Telegram Navy", Color(0xFF5288C1)),
-                            Triple("SIGNAL", "Signal Emerald", Color(0xFF32A880)),
-                            Triple("CYBERPUNK", "Cyberpunk Neon", Color(0xFFBD34FE))
+                            Triple("DEFAULT", "Arctic Blue (Default)", Color(0xFF007AFF)), Triple("SLATE", "Slate Monochrome", Color(0xFF64748B)), Triple("SIGNAL", "Signal Emerald", Color(0xFF10B981)), Triple("TELEGRAM", "Ocean Navy", Color(0xFF5288C1))
                         )
 
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1176,4 +1173,5 @@ fun VaultSecurityScreen(
         )
     }
 }
+
 

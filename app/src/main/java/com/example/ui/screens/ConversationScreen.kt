@@ -423,14 +423,24 @@ fun ConversationScreen(
                             Column(
                                 modifier = Modifier.weight(1f, fill = false)
                             ) {
-                                Text(
-                                    text = conversation.peerName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = conversation.peerName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (conversation.isEncrypted) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Encrypted",
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = if (uiState.isPeerTyping) "typing..."
                                     else if (conversation.isGroup) "$memberCount members"
@@ -1794,7 +1804,7 @@ fun MessageBubble(
     val isMe = message.isMe
     val context = LocalContext.current
     val bubbleColor = if (isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val textColor = if (isMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = if (isMe) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val alignment = if (isMe) Alignment.End else Alignment.Start
 
     var remainingSeconds by remember(message.expiresAtTimestamp) {
@@ -2715,3 +2725,5 @@ private fun formatTimerShort(seconds: Long): String {
         else -> "${seconds / 86400}d"
     }
 }
+
+
