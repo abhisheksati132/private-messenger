@@ -271,7 +271,7 @@ class FirebaseCloudService(
                 "publicKey" to publicKey,
                 "avatarBgHex" to "#DDE1FF",
                 "avatarTextHex" to "#001453",
-                "about" to "Hey there! I am using itas.",
+                "about" to "Hey there! I am using Private Messenger.",
                 "lastActive" to FieldValue.serverTimestamp(),
                 "isOnline" to true,
                 "fcmToken" to fcmToken
@@ -1524,3 +1524,4 @@ data class FirebaseDiagnostics(
     val currentUid: String? = null,
     val fcmToken: String? = null
 )
+

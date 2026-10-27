@@ -93,7 +93,7 @@ fun AuthScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             Text(
-                text = "itas",
+                text = "Private Messenger",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -496,3 +496,4 @@ fun AuthScreen(
         }
     }
 }
+

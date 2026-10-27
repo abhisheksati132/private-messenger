@@ -25,10 +25,10 @@ data class ConversationEntity(
     val peerId: String,
     val peerName: String,
     val peerHandle: String,
-    val avatarBgColorHex: String,
-    val avatarTextColorHex: String,
-    val lastMessage: String,
-    val lastTimestamp: Long,
+    val avatarBgColorHex: String = "#DDE1FF",
+    val avatarTextColorHex: String = "#001453",
+    val lastMessage: String = "",
+    val lastTimestamp: Long = System.currentTimeMillis(),
     val unreadCount: Int = 0,
     val isOnline: Boolean = false,
     val isPinned: Boolean = false,
@@ -120,3 +120,4 @@ data class AuthUser(
     val photoUrl: String? = null,
     val isAnonymous: Boolean = false
 )
+

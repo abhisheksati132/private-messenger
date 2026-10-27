@@ -1,10 +1,12 @@
 package com.example
 
 import com.example.data.crypto.CryptoHelper
+import com.example.data.model.ConversationEntity
 import com.example.data.model.MessageEntity
 import com.example.data.model.MessageStatus
 import com.example.data.model.MessageType
 import com.example.ui.screens.formatFileSize
+import com.example.util.AppUpdateManager
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -105,5 +107,78 @@ class MessengerV140UnitTest {
 
         currentSpeed = getNextSpeed(currentSpeed)
         assertEquals(1.0f, currentSpeed, 0.01f)
+    }
+
+    @Test
+    fun testSemanticVersionComparison_inAppUpdater() {
+        assertTrue(AppUpdateManager.isNewerVersion("v1.6.0", "1.5.1"))
+        assertTrue(AppUpdateManager.isNewerVersion("1.6.1", "1.6.0"))
+        assertTrue(AppUpdateManager.isNewerVersion("v2.0.0", "1.6.0"))
+        assertTrue(AppUpdateManager.isNewerVersion("1.10.0", "1.9.5"))
+
+        assertFalse(AppUpdateManager.isNewerVersion("v1.5.1", "1.6.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("1.6.0", "1.6.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("v1.6.0", "v1.6.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("1.6.0-beta", "1.6.0"))
+        assertFalse(AppUpdateManager.isNewerVersion("", "1.6.0"))
+    }
+
+    @Test
+    fun testTamperedCiphertext_recoversGracefullyWithoutCrash() {
+        val original = "Sensitive financial payload"
+        val cipher = CryptoHelper.encrypt(original)
+
+        // Corrupt several bytes in the middle of ciphertext to simulate bit-flip / tamper
+        val cipherBytes = CryptoHelper.base64Decode(cipher)
+        cipherBytes[cipherBytes.size / 2] = (cipherBytes[cipherBytes.size / 2] + 1).toByte()
+        val tamperedCipher = CryptoHelper.base64Encode(cipherBytes)
+
+        val result = CryptoHelper.decrypt(tamperedCipher)
+        // Authenticated AES-GCM tag verification must reject tampered bytes safely
+        assertEquals("[Encrypted Message]", result)
+    }
+
+    @Test
+    fun testCorruptBase64_decryptsSafelyWithoutCrash() {
+        val garbage = "NotAValidBase64String%%%$$$"
+        val result = CryptoHelper.decrypt(garbage)
+        assertEquals("[Encrypted Message]", result)
+    }
+
+    @Test
+    fun testEmptyAndBlankStrings_encryptionSafety() {
+        assertEquals("", CryptoHelper.encrypt(""))
+        assertEquals("", CryptoHelper.decrypt(""))
+    }
+
+    @Test
+    fun testLargePayload_encryptDecryptCycle() {
+        val largeText = "A".repeat(50_000) + "B".repeat(50_000)
+        val encrypted = CryptoHelper.encrypt(largeText)
+        val decrypted = CryptoHelper.decrypt(encrypted)
+        assertEquals(largeText, decrypted)
+    }
+
+    @Test
+    fun testConversationEntity_metadata() {
+        val conv = ConversationEntity(
+            id = 5L,
+            peerId = "u_sarah",
+            peerName = "Sarah Connor",
+            peerHandle = "sarah.99",
+            lastMessage = "Status update",
+            lastTimestamp = 1700000000L,
+            unreadCount = 3,
+            isOnline = true,
+            isEncrypted = true,
+            keyFingerprint = "7A:B3:9F",
+            disappearingTimerSeconds = 86400L
+        )
+
+        assertEquals("sarah.99", conv.peerHandle)
+        assertEquals(3, conv.unreadCount)
+        assertTrue(conv.isEncrypted)
+        assertEquals(86400L, conv.disappearingTimerSeconds)
+        assertEquals("7A:B3:9F", conv.keyFingerprint)
     }
 }

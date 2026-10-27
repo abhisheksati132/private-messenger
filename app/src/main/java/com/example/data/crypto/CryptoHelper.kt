@@ -23,7 +23,7 @@ object CryptoHelper {
     private val secureRandom = SecureRandom()
     private val PIN_SALT = "PrivateMessengerSecurePinSaltV1".toByteArray(Charsets.UTF_8)
 
-    private fun base64Encode(bytes: ByteArray): String {
+    fun base64Encode(bytes: ByteArray): String {
         return try {
             java.util.Base64.getEncoder().encodeToString(bytes)
         } catch (e: Throwable) {
@@ -31,7 +31,7 @@ object CryptoHelper {
         }
     }
 
-    private fun base64Decode(str: String): ByteArray {
+    fun base64Decode(str: String): ByteArray {
         return try {
             java.util.Base64.getDecoder().decode(str.trim())
         } catch (e: Throwable) {
@@ -193,3 +193,4 @@ object CryptoHelper {
         return numericChunks.chunked(4).joinToString(" ") { it.joinToString("") }
     }
 }
+

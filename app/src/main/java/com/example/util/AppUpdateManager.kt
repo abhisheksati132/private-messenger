@@ -3,6 +3,8 @@ package com.example.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.google.firebase.FirebaseApp
@@ -54,11 +56,10 @@ class AppUpdateManager(private val context: Context) {
                     val publishedAt = doc.getString("published_at") ?: ""
 
                     if (tagName.isNotBlank() && downloadUrl.isNotBlank()) {
-                        val currentVer = getCurrentVersionName().trim().lowercase().removePrefix("v")
-                        val latestVer = tagName.trim().lowercase().removePrefix("v")
-                        val hasUpdate = latestVer.isNotBlank() && latestVer != currentVer
+                        val currentVer = getCurrentVersionName()
+                        val hasUpdate = isNewerVersion(tagName, currentVer)
 
-                        Log.d(TAG, "Checked update via Firestore: current=$currentVer, latest=$latestVer, hasUpdate=$hasUpdate")
+                        Log.d(TAG, "Checked update via Firestore: current=$currentVer, latest=$tagName, hasUpdate=$hasUpdate")
                         return@withContext Result.success(
                             AppReleaseInfo(
                                 tagName = tagName,
@@ -82,7 +83,7 @@ class AppUpdateManager(private val context: Context) {
             val url = URL(GITHUB_API_URL)
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                setRequestProperty("User-Agent", "itasApp")
+                setRequestProperty("User-Agent", "PrivateMessengerApp")
                 setRequestProperty("Accept", "application/vnd.github.v3+json")
                 if (!githubToken.isNullOrBlank()) {
                     setRequestProperty("Authorization", "Bearer ${githubToken.trim()}")
@@ -117,17 +118,24 @@ class AppUpdateManager(private val context: Context) {
             var apkSize = 0L
 
             if (assets != null) {
+                var chosenAsset: JSONObject? = null
                 for (i in 0 until assets.length()) {
                     val asset = assets.getJSONObject(i)
                     val assetName = asset.optString("name", "")
                     if (assetName.endsWith(".apk", ignoreCase = true)) {
-                        // For private repos, we can also use asset URL or browser_download_url
-                        val assetUrl = asset.optString("url", "")
-                        val browserDownloadUrl = asset.optString("browser_download_url", "")
-                        downloadUrl = if (!githubToken.isNullOrBlank() && assetUrl.isNotBlank()) assetUrl else browserDownloadUrl
-                        apkSize = asset.optLong("size", 0L)
-                        break
+                        if (assetName.contains("private-messenger", ignoreCase = true)) {
+                            chosenAsset = asset
+                            break
+                        } else if (chosenAsset == null) {
+                            chosenAsset = asset
+                        }
                     }
+                }
+                if (chosenAsset != null) {
+                    val assetUrl = chosenAsset.optString("url", "")
+                    val browserDownloadUrl = chosenAsset.optString("browser_download_url", "")
+                    downloadUrl = if (!githubToken.isNullOrBlank() && assetUrl.isNotBlank()) assetUrl else browserDownloadUrl
+                    apkSize = chosenAsset.optLong("size", 0L)
                 }
             }
 
@@ -135,11 +143,8 @@ class AppUpdateManager(private val context: Context) {
                 return@withContext Result.failure(IllegalStateException("No APK asset found in latest release"))
             }
 
-            val currentVer = getCurrentVersionName().trim().lowercase().removePrefix("v")
-            val latestVer = tagName.trim().lowercase().removePrefix("v")
-
-            // If tag is not identical to current version name, consider it an update
-            val hasUpdate = latestVer.isNotBlank() && latestVer != currentVer
+            val currentVer = getCurrentVersionName()
+            val hasUpdate = isNewerVersion(tagName, currentVer)
 
             val releaseInfo = AppReleaseInfo(
                 tagName = tagName,
@@ -151,7 +156,7 @@ class AppUpdateManager(private val context: Context) {
                 isNewUpdateAvailable = hasUpdate
             )
 
-            Log.d(TAG, "Check update success: current=$currentVer, latest=$latestVer, hasUpdate=$hasUpdate")
+            Log.d(TAG, "Check update success: current=$currentVer, latest=$tagName, hasUpdate=$hasUpdate")
             Result.success(releaseInfo)
         } catch (e: Exception) {
             Log.e(TAG, "Error checking for updates: ${e.message}")
@@ -166,14 +171,14 @@ class AppUpdateManager(private val context: Context) {
     ): File? = withContext(Dispatchers.IO) {
         try {
             val updateDir = File(context.cacheDir, "updates").apply { if (!exists()) mkdirs() }
-            val apkFile = File(updateDir, "itas.apk")
+            val apkFile = File(updateDir, "private-messenger.apk")
             if (apkFile.exists()) apkFile.delete()
 
             val isAssetApi = downloadUrl.contains("/releases/assets/")
             val url = URL(downloadUrl)
             var conn = (url.openConnection() as HttpURLConnection).apply {
                 instanceFollowRedirects = false // Handle redirect explicitly so auth token isn't leaked to AWS S3
-                setRequestProperty("User-Agent", "itasApp")
+                setRequestProperty("User-Agent", "PrivateMessengerApp")
                 if (isAssetApi && !githubToken.isNullOrBlank()) {
                     setRequestProperty("Authorization", "Bearer ${githubToken.trim()}")
                     setRequestProperty("Accept", "application/octet-stream")
@@ -191,7 +196,7 @@ class AppUpdateManager(private val context: Context) {
                 conn.disconnect()
                 conn = (URL(newUrl).openConnection() as HttpURLConnection).apply {
                     instanceFollowRedirects = false
-                    setRequestProperty("User-Agent", "itasApp")
+                    setRequestProperty("User-Agent", "PrivateMessengerApp")
                     // Note: S3 presigned URLs fail if extra Authorization header is sent
                     connectTimeout = 15000
                     readTimeout = 30000
@@ -237,6 +242,17 @@ class AppUpdateManager(private val context: Context) {
         return try {
             if (!apkFile.exists()) return false
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (!context.packageManager.canRequestPackageInstalls()) {
+                    val manageIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(manageIntent)
+                    return false
+                }
+            }
+
             val contentUri: Uri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.provider",
@@ -253,6 +269,30 @@ class AppUpdateManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch package installer: ${e.message}")
             false
+        }
+    }
+
+    companion object {
+        /**
+         * Semantic version comparison supporting prefixes (v1.6.0 vs 1.5.1) and suffixes (1.6.0-beta).
+         * Returns true only if `latest` is strictly newer than `current`.
+         */
+        fun isNewerVersion(latest: String, current: String): Boolean {
+            val cleanLatest = latest.trim().lowercase().removePrefix("v")
+            val cleanCurrent = current.trim().lowercase().removePrefix("v")
+            if (cleanLatest.isEmpty() || cleanLatest == cleanCurrent) return false
+
+            val latestParts = cleanLatest.split("-")[0].split(".").mapNotNull { it.toIntOrNull() }
+            val currentParts = cleanCurrent.split("-")[0].split(".").mapNotNull { it.toIntOrNull() }
+
+            val maxLen = maxOf(latestParts.size, currentParts.size)
+            for (i in 0 until maxLen) {
+                val l = latestParts.getOrElse(i) { 0 }
+                val c = currentParts.getOrElse(i) { 0 }
+                if (l > c) return true
+                if (l < c) return false
+            }
+            return false
         }
     }
 }
