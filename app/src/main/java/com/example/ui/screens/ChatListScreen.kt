@@ -144,7 +144,7 @@ fun ChatListScreen(
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = if (uiState.selectedFilter == "ARCHIVED") "${uiState.archivedConversations.size} archived chats" else "${conversations.size} active threads",
+                            text = if (uiState.selectedFilter == "ARCHIVED") "${uiState.archivedConversations.size} archived chats" else if (conversations.isNotEmpty()) "${conversations.size} conversations" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -313,14 +313,14 @@ fun ChatListScreen(
                         Text(
                             text = if (uiState.searchQuery.isNotEmpty()) "No matching conversations"
                             else if (uiState.selectedFilter == "ARCHIVED") "No archived chats"
-                            else "No messages yet",
+                            else "No conversations yet",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (uiState.selectedFilter == "ARCHIVED") "Swipe left on any conversation to archive it."
-                            else "Start a private, secure conversation with anyone using their handle.",
+                            else "Start a private conversation with a friend or colleague.",
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -766,14 +766,6 @@ fun ConversationListItem(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (conversation.isEncrypted) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Encrypted",
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                modifier = Modifier.size(11.dp)
-                            )
-                        }
                         if (conversation.isPinned) {
                             Icon(
                                 imageVector = Icons.Default.PushPin,

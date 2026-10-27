@@ -179,13 +179,13 @@ fun ContactsScreen(
                             }
                         }
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No contacts match \"$searchQuery\"" else "No saved contacts",
+                            text = if (searchQuery.isNotBlank()) "No contacts match \"$searchQuery\"" else "Find your friends",
                             fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "Add contacts by their unique @handle to start private chats and calls.",
+                            text = if (searchQuery.isNotBlank()) "Try searching with a different name or handle." else "Add someone by their @handle to message them securely.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center

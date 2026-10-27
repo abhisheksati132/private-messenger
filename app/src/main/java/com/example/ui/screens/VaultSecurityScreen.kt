@@ -60,6 +60,7 @@ fun VaultSecurityScreen(
     var showHandleDialog by remember { mutableStateOf(false) }
     var handleInput by remember { mutableStateOf(uiState.myHandle) }
     var showKeyDetails by remember { mutableStateOf(false) }
+    var showAdvancedSecurity by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -326,13 +327,13 @@ fun VaultSecurityScreen(
                         Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Column {
                             Text(
-                                text = "Screen Protection",
+                                text = "Screen Privacy",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Prevent screenshots & app switcher previews",
+                                text = "Hide preview when switching apps",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -369,13 +370,13 @@ fun VaultSecurityScreen(
                         Icon(Icons.Default.KeyboardHide, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Column {
                             Text(
-                                text = "Incognito Keyboard",
+                                text = "Private Keyboard",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Disable personalized keyboard dictionary learning",
+                                text = "Prevent keyboard from learning new words",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -389,7 +390,7 @@ fun VaultSecurityScreen(
                 }
             }
 
-            // Handle & Keys Management
+            // Advanced Security (Collapsible)
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -397,84 +398,82 @@ fun VaultSecurityScreen(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAdvancedSecurity = !showAdvancedSecurity }
+                            .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Default.VpnKey, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Column {
                                 Text(
-                                    text = "Privacy Handle",
+                                    text = "Advanced Security",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "@${uiState.myHandle}",
+                                    text = "Encryption key details & security refresh",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-
-                        OutlinedButton(
-                            onClick = {
-                                handleInput = uiState.myHandle
-                                showHandleDialog = true
-                            },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text("Change", fontSize = 12.sp)
-                        }
+                        Icon(
+                            imageVector = if (showAdvancedSecurity) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Encryption Key Fingerprint",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (showKeyDetails) uiState.myPublicKey else "${uiState.myPublicKey.take(16)}...",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        Row {
-                            IconButton(onClick = { showKeyDetails = !showKeyDetails }) {
-                                Icon(
-                                    imageVector = if (showKeyDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = "Toggle key display",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                    if (showAdvancedSecurity) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Key Fingerprint",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (showKeyDetails) uiState.myPublicKey else "${uiState.myPublicKey.take(16)}...",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(onClick = { showKeyDetails = !showKeyDetails }) {
+                                    Icon(
+                                        imageVector = if (showKeyDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = "Toggle key display",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
-                            IconButton(onClick = onRotateKeys) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Rotate Keys",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
+
+                            FilledTonalButton(
+                                onClick = onRotateKeys,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Refresh Security Keys", fontSize = 12.sp)
                             }
                         }
                     }
@@ -796,7 +795,7 @@ fun VaultSecurityScreen(
 
             // Section 6: Reset / Erase Data
             Text(
-                text = "Danger Zone",
+                text = "Reset & Erase",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = ErrorRed,
@@ -893,7 +892,7 @@ fun VaultSecurityScreen(
                 }
             },
             text = {
-                Text("This will permanently delete all encrypted chats, call history, statuses, and encryption keys. This action cannot be undone.")
+                Text("This will permanently delete all messages, call history, and account keys from this device. This action cannot be undone.")
             },
             confirmButton = {
                 Button(
