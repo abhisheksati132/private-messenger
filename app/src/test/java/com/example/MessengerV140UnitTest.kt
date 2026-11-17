@@ -181,4 +181,50 @@ class MessengerV140UnitTest {
         assertEquals(86400L, conv.disappearingTimerSeconds)
         assertEquals("7A:B3:9F", conv.keyFingerprint)
     }
+
+    @Test
+    fun testECDH_keyAgreementMatchesBetweenPeers() {
+        val aliceKeys = CryptoHelper.generateECDHKeyPair()
+        val bobKeys = CryptoHelper.generateECDHKeyPair()
+
+        assertTrue(aliceKeys.first.isNotBlank())
+        assertTrue(aliceKeys.second.isNotBlank())
+        assertTrue(bobKeys.first.isNotBlank())
+        assertTrue(bobKeys.second.isNotBlank())
+
+        val secretAlice = CryptoHelper.computeSharedSecret(aliceKeys.second, bobKeys.first)
+        val secretBob = CryptoHelper.computeSharedSecret(bobKeys.second, aliceKeys.first)
+
+        assertEquals(32, secretAlice.size)
+        assertEquals(32, secretBob.size)
+        assertArrayEquals(secretAlice, secretBob)
+    }
+
+    @Test
+    fun testECDH_peerEncryptionAndDecryption() {
+        val aliceKeys = CryptoHelper.generateECDHKeyPair()
+        val bobKeys = CryptoHelper.generateECDHKeyPair()
+
+        val secretAlice = CryptoHelper.computeSharedSecret(aliceKeys.second, bobKeys.first)
+        val secretBob = CryptoHelper.computeSharedSecret(bobKeys.second, aliceKeys.first)
+
+        val secretMessage = "Confidential meeting at 22:00"
+        val cipherFromAlice = CryptoHelper.encrypt(secretMessage, secretAlice)
+        val decryptedByBob = CryptoHelper.decrypt(cipherFromAlice, secretBob)
+
+        assertEquals(secretMessage, decryptedByBob)
+    }
+
+    @Test
+    fun testCryptoHelper_fallbackToDefaultChannelWhenSecretKeyMismatches() {
+        val msg = "Message from older client version"
+        val cipherDefault = CryptoHelper.encrypt(msg, CryptoHelper.defaultKeyBytes)
+
+        val randomPeerKeys = CryptoHelper.generateECDHKeyPair()
+        val wrongSecret = CryptoHelper.computeSharedSecret(randomPeerKeys.second, randomPeerKeys.first)
+
+        // When decrypted with a mismatched secret key, it gracefully falls back to default channel key
+        val decrypted = CryptoHelper.decrypt(cipherDefault, wrongSecret)
+        assertEquals(msg, decrypted)
+    }
 }

@@ -52,6 +52,7 @@ class FirebaseCloudService(
     private val scope: CoroutineScope
 ) {
     private val TAG = "FirebaseCloudService"
+    private val securityPrefs = com.example.data.local.SecurityPreferencesRepository(context)
     private var firestore: FirebaseFirestore? = null
     private var realtimeDb: FirebaseDatabase? = null
     private var storage: FirebaseStorage? = null
@@ -118,6 +119,7 @@ class FirebaseCloudService(
 
     fun isCloudAvailable(): Boolean = firestore != null
 
+    @Suppress("DEPRECATION")
     private fun syncFcmToken() {
         try {
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -399,7 +401,25 @@ class FirebaseCloudService(
         fileSizeBytes: Long = 0L,
         cloudDocId: String? = null
     ) {
-        val decryptedText = if (type == MessageType.TEXT && cipherText.isNotEmpty()) CryptoHelper.decrypt(cipherText) else cipherText
+        var senderPubKey = dao.getContactByHandle(senderHandle)?.publicKey?.trim().orEmpty()
+        if (senderPubKey.isEmpty() || senderPubKey.startsWith("ECDH-P256: ")) {
+            try {
+                val userDoc = firestore?.collection("users")?.document(senderHandle)?.get()?.await()
+                if (userDoc != null && userDoc.exists()) {
+                    val cloudKey = userDoc.getString("publicKey")?.trim().orEmpty()
+                    if (cloudKey.isNotEmpty()) {
+                        senderPubKey = cloudKey
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        val myPrivKey = securityPrefs.getMyPrivateKey().trim()
+        val secretKey = if (myPrivKey.isNotEmpty() && senderPubKey.isNotEmpty() && !senderPubKey.startsWith("ECDH-P256: ")) {
+            CryptoHelper.computeSharedSecret(myPrivKey, senderPubKey)
+        } else {
+            CryptoHelper.defaultKeyBytes
+        }
+        val decryptedText = if (type == MessageType.TEXT && cipherText.isNotEmpty()) CryptoHelper.decrypt(cipherText, secretKey) else cipherText
 
         if (cloudDocId != null) {
             val existing = dao.getMessageByCloudDocId(cloudDocId)

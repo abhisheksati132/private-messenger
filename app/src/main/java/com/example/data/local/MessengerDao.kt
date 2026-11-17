@@ -94,6 +94,9 @@ interface MessengerDao {
     @Query("SELECT * FROM contacts ORDER BY name ASC")
     fun getAllContacts(): Flow<List<ContactEntity>>
 
+    @Query("SELECT * FROM contacts WHERE handle = :handle LIMIT 1")
+    suspend fun getContactByHandle(handle: String): ContactEntity?
+
     @Query("SELECT * FROM contacts WHERE isBlocked = 1")
     fun getBlockedContacts(): Flow<List<ContactEntity>>
 

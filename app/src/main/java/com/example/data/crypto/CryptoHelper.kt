@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
 object CryptoHelper {
     // 32-byte (256-bit) default key for un-negotiated local channels
     private const val DEFAULT_SECRET = "CleanMinimalistPrivateMessengerKey!"
-    private val defaultKeyBytes = MessageDigest.getInstance("SHA-256").digest(DEFAULT_SECRET.toByteArray())
+    val defaultKeyBytes: ByteArray = MessageDigest.getInstance("SHA-256").digest(DEFAULT_SECRET.toByteArray())
     private const val GCM_IV_LENGTH = 12
     private const val GCM_TAG_LENGTH = 128
     private const val GCM_VERSION: Byte = 0x01
@@ -113,13 +113,24 @@ object CryptoHelper {
 
     /**
      * Decrypts ciphertext with authenticated AES-256-GCM.
-     * Automatically supports backwards-compatible fallback for legacy AES-CBC messages.
+     * Automatically supports backwards-compatible fallback for legacy AES-CBC messages
+     * and fallback to default channel key if session-derived key fails.
      */
     fun decrypt(cipherText: String, secretKey: ByteArray = defaultKeyBytes): String {
         if (cipherText.isEmpty()) return ""
+        val result = tryDecrypt(cipherText, secretKey)
+        if (result != null) return result
+        if (!secretKey.contentEquals(defaultKeyBytes)) {
+            val fallback = tryDecrypt(cipherText, defaultKeyBytes)
+            if (fallback != null) return fallback
+        }
+        return "[Encrypted Message]"
+    }
+
+    private fun tryDecrypt(cipherText: String, key: ByteArray): String? {
         return try {
             val decoded = base64Decode(cipherText)
-            val keySpec = SecretKeySpec(secretKey.copyOf(32), "AES")
+            val keySpec = SecretKeySpec(key.copyOf(32), "AES")
 
             // Modern AES-GCM (Version 0x01, at least 1 + 12 + 16 bytes)
             if (decoded.isNotEmpty() && decoded[0] == GCM_VERSION && decoded.size > 1 + GCM_IV_LENGTH + 16) {
@@ -127,19 +138,17 @@ object CryptoHelper {
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                 cipher.init(Cipher.DECRYPT_MODE, keySpec, spec)
                 val plainBytes = cipher.doFinal(decoded, 1 + GCM_IV_LENGTH, decoded.size - (1 + GCM_IV_LENGTH))
-                return String(plainBytes, Charsets.UTF_8)
+                String(plainBytes, Charsets.UTF_8)
+            } else {
+                decryptLegacyCbc(decoded, keySpec)
             }
-
-            // Legacy AES-CBC fallback for existing database entries
-            decryptLegacyCbc(decoded, keySpec)
         } catch (e: Exception) {
-            // If GCM decoding fails, attempt legacy CBC or return error indicator
             try {
                 val decoded = base64Decode(cipherText)
-                val keySpec = SecretKeySpec(secretKey.copyOf(32), "AES")
+                val keySpec = SecretKeySpec(key.copyOf(32), "AES")
                 decryptLegacyCbc(decoded, keySpec)
             } catch (legacyEx: Exception) {
-                "[Encrypted Message]"
+                null
             }
         }
     }

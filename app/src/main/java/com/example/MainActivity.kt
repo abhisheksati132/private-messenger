@@ -371,8 +371,6 @@ class MainActivity : ComponentActivity() {
                                                     onOpenAuthDialog = { viewModel.setAuthDialogOpen(true) },
                                                     onToggleDarkMode = { mode -> viewModel.setDarkMode(mode) },
                                                     onSetAppTheme = { theme -> viewModel.setAppTheme(theme) },
-                                                    onSetChatWallpaper = { wallpaper -> viewModel.setChatWallpaper(wallpaper) },
-                                                    onSetWallpaperOpacity = { opacity -> viewModel.setWallpaperOpacity(opacity) },
                                                     onToggleIncognitoKeyboard = { enabled -> viewModel.setIncognitoKeyboard(enabled) },
                                                     onOpenProfileDialog = { viewModel.setUserProfileDialogOpen(true) },
                                                     onToggleNotificationSounds = { enabled -> viewModel.toggleNotificationSound(enabled) },

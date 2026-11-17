@@ -3,6 +3,7 @@ package com.example.data.repository
 import android.net.Uri
 import com.example.data.crypto.CryptoHelper
 import com.example.data.local.MessengerDao
+import com.example.data.local.SecurityPreferencesRepository
 import com.example.data.model.*
 import com.example.data.remote.CloudUser
 import com.example.data.remote.FirebaseCloudService
@@ -16,8 +17,31 @@ import java.util.UUID
 
 class MessengerRepository(
     private val dao: MessengerDao,
-    private val cloudService: FirebaseCloudService? = null
+    private val cloudService: FirebaseCloudService? = null,
+    private val securityPrefs: SecurityPreferencesRepository? = null
 ) {
+
+    private suspend fun resolveConversationSecretKey(conv: ConversationEntity?): ByteArray {
+        if (conv == null || conv.isGroup || securityPrefs == null) return CryptoHelper.defaultKeyBytes
+        val myPrivKey = securityPrefs.getMyPrivateKey().trim()
+        if (myPrivKey.isEmpty()) return CryptoHelper.defaultKeyBytes
+
+        var peerPubKey = dao.getContactByHandle(conv.peerHandle)?.publicKey?.trim().orEmpty()
+        if (peerPubKey.isEmpty() || peerPubKey.startsWith("ECDH-P256: ")) {
+            val cloudPeer = cloudService?.searchUserByHandle(conv.peerHandle)
+            if (cloudPeer != null && cloudPeer.publicKey.isNotBlank()) {
+                peerPubKey = cloudPeer.publicKey.trim()
+            }
+        }
+
+        if (peerPubKey.isNotEmpty() && !peerPubKey.startsWith("ECDH-P256: ")) {
+            val secret = CryptoHelper.computeSharedSecret(myPrivKey, peerPubKey)
+            if (secret.isNotEmpty() && !secret.contentEquals(CryptoHelper.defaultKeyBytes)) {
+                return secret
+            }
+        }
+        return CryptoHelper.defaultKeyBytes
+    }
 
     val activeConversations: Flow<List<ConversationEntity>> = dao.getActiveConversations()
     val archivedConversations: Flow<List<ConversationEntity>> = dao.getArchivedConversations()
@@ -70,9 +94,11 @@ class MessengerRepository(
     }
 
     suspend fun editMessage(messageId: Long, newText: String, myHandle: String = "me") {
-        val cipher = CryptoHelper.encrypt(newText)
-        dao.updateMessageText(messageId, newText, cipher)
         val msg = dao.getMessageById(messageId)
+        val conv = if (msg != null) dao.getConversationById(msg.conversationId).firstOrNull() else null
+        val secretKey = resolveConversationSecretKey(conv)
+        val cipher = CryptoHelper.encrypt(newText, secretKey)
+        dao.updateMessageText(messageId, newText, cipher)
         if (msg?.cloudMsgDocId != null) {
             cloudService?.editCloudMessage(msg.cloudMsgDocId, cipher)
         }
@@ -97,7 +123,9 @@ class MessengerRepository(
             now + (disappearingTimerSeconds * 1000L)
         } else null
 
-        val cipher = if (type == MessageType.TEXT) CryptoHelper.encrypt(text) else ""
+        val conv = dao.getConversationById(conversationId).firstOrNull()
+        val secretKey = resolveConversationSecretKey(conv)
+        val cipher = if (type == MessageType.TEXT) CryptoHelper.encrypt(text, secretKey) else ""
 
         val message = MessageEntity(
             conversationId = conversationId,
@@ -129,7 +157,6 @@ class MessengerRepository(
             else -> text
         }
 
-        val conv = dao.getConversationById(conversationId).firstOrNull()
         if (conv != null) {
             dao.updateConversation(
                 conv.copy(
@@ -299,7 +326,9 @@ class MessengerRepository(
         replyText: String
     ) {
         val now = System.currentTimeMillis()
-        val cipher = CryptoHelper.encrypt(replyText)
+        val conv = dao.getConversationById(conversationId).firstOrNull()
+        val secretKey = resolveConversationSecretKey(conv)
+        val cipher = CryptoHelper.encrypt(replyText, secretKey)
         val message = MessageEntity(
             conversationId = conversationId,
             senderId = "peer",

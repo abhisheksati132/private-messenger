@@ -33,6 +33,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         const val CHANNEL_NAME = "Encrypted Messages & Calls"
     }
 
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "New FCM Token received: $token")

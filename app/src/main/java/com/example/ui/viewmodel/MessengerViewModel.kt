@@ -106,8 +106,6 @@ data class UiState(
     val isRunningDiagnostics: Boolean = false,
     val isWhatsNewDialogOpen: Boolean = false,
     val selectedTheme: String = "DEFAULT",
-    val chatWallpaper: String = "DOODLE_GEOMETRIC",
-    val wallpaperOpacity: Float = 0.35f,
     val isIncognitoKeyboard: Boolean = false,
     val archivedConversations: List<ConversationEntity> = emptyList()
 ) {
@@ -139,7 +137,7 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         val db = AppDatabase.getDatabase(application, viewModelScope)
         cloudService = FirebaseCloudService(application, db.messengerDao(), viewModelScope)
         authService = FirebaseAuthService(application)
-        repository = MessengerRepository(db.messengerDao(), cloudService)
+        repository = MessengerRepository(db.messengerDao(), cloudService, securityPrefs)
 
         // Observe DataStore Security Preferences & Dark Mode
         viewModelScope.launch {
@@ -193,13 +191,14 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         viewModelScope.launch {
-            securityPrefs.chatWallpaperFlow.collect { wallpaper ->
-                _uiState.update { it.copy(chatWallpaper = wallpaper) }
-            }
-        }
-        viewModelScope.launch {
-            securityPrefs.wallpaperOpacityFlow.collect { opacity ->
-                _uiState.update { it.copy(wallpaperOpacity = opacity) }
+            securityPrefs.myPublicKeyFlow.collect { savedPub ->
+                if (savedPub.isBlank()) {
+                    val keyPair = CryptoHelper.generateECDHKeyPair()
+                    securityPrefs.saveKeyPair(keyPair.first, keyPair.second)
+                    _uiState.update { it.copy(myPublicKey = keyPair.first) }
+                } else {
+                    _uiState.update { it.copy(myPublicKey = savedPub) }
+                }
             }
         }
         viewModelScope.launch {
@@ -1264,23 +1263,30 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
             prefs.edit().putString("saved_handle", trimmed).apply()
             _uiState.update { it.copy(myHandle = trimmed) }
             viewModelScope.launch {
+                val pubKey = _uiState.value.myPublicKey.ifBlank {
+                    val keyPair = CryptoHelper.generateECDHKeyPair()
+                    securityPrefs.saveKeyPair(keyPair.first, keyPair.second)
+                    _uiState.update { it.copy(myPublicKey = keyPair.first) }
+                    keyPair.first
+                }
                 cloudService.registerUser(
                     handle = trimmed,
-                    displayName = "User $trimmed",
-                    publicKey = _uiState.value.myPublicKey
+                    displayName = _uiState.value.myDisplayName.ifBlank { "User $trimmed" },
+                    publicKey = pubKey
                 )
             }
         }
     }
 
     fun rotateMyKeys() {
-        val newKey = "ECDH-P256: " + CryptoHelper.generateFingerprint(_uiState.value.myHandle + System.currentTimeMillis())
-        _uiState.update { it.copy(myPublicKey = newKey) }
+        val keyPair = CryptoHelper.generateECDHKeyPair()
         viewModelScope.launch {
+            securityPrefs.saveKeyPair(keyPair.first, keyPair.second)
+            _uiState.update { it.copy(myPublicKey = keyPair.first) }
             cloudService.registerUser(
                 handle = _uiState.value.myHandle,
-                displayName = "User ${_uiState.value.myHandle}",
-                publicKey = newKey
+                displayName = _uiState.value.myDisplayName.ifBlank { "User ${_uiState.value.myHandle}" },
+                publicKey = keyPair.first
             )
         }
     }
@@ -1401,20 +1407,6 @@ class MessengerViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             securityPrefs.setThemeName(theme)
             _uiState.update { it.copy(selectedTheme = theme) }
-        }
-    }
-
-    fun setChatWallpaper(wallpaper: String) {
-        viewModelScope.launch {
-            securityPrefs.setChatWallpaper(wallpaper)
-            _uiState.update { it.copy(chatWallpaper = wallpaper) }
-        }
-    }
-
-    fun setWallpaperOpacity(opacity: Float) {
-        viewModelScope.launch {
-            securityPrefs.setWallpaperOpacity(opacity)
-            _uiState.update { it.copy(wallpaperOpacity = opacity) }
         }
     }
 

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -65,7 +66,7 @@ object ImageCompressorHelper {
 
             tempFile
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("ImageCompressorHelper", "Image compression error", e)
             null
         }
     }
@@ -141,7 +142,7 @@ object ImageCompressorHelper {
             val base64Str = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
             "data:image/jpeg;base64,$base64Str"
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("ImageCompressorHelper", "Image compression error", e)
             null
         }
     }
@@ -162,7 +163,7 @@ object ImageCompressorHelper {
             FileOutputStream(file).use { it.write(bytes) }
             file
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("ImageCompressorHelper", "Image compression error", e)
             null
         }
     }

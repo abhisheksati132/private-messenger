@@ -40,8 +40,6 @@ fun VaultSecurityScreen(
     onOpenAuthDialog: () -> Unit = {},
     onToggleDarkMode: (Boolean?) -> Unit = {},
     onSetAppTheme: (String) -> Unit = {},
-    onSetChatWallpaper: (String) -> Unit = {},
-    onSetWallpaperOpacity: (Float) -> Unit = {},
     onToggleIncognitoKeyboard: (Boolean) -> Unit = {},
     onOpenProfileDialog: () -> Unit = {},
     onToggleNotificationSounds: (Boolean) -> Unit = {},

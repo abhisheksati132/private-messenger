@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "security_preferences")
@@ -25,21 +26,36 @@ class SecurityPreferencesRepository(private val context: Context) {
         val KEY_VIBRATION_PATTERN = stringPreferencesKey("vibration_pattern")
         val KEY_GITHUB_TOKEN = stringPreferencesKey("github_update_token")
         val KEY_THEME_NAME = stringPreferencesKey("app_theme_name")
-        val KEY_CHAT_WALLPAPER = stringPreferencesKey("app_chat_wallpaper")
-        val KEY_WALLPAPER_OPACITY = androidx.datastore.preferences.core.floatPreferencesKey("wallpaper_opacity")
         val KEY_INCOGNITO_KEYBOARD = booleanPreferencesKey("incognito_keyboard")
+        val KEY_MY_PUBLIC_KEY = stringPreferencesKey("my_public_key")
+        val KEY_MY_PRIVATE_KEY = stringPreferencesKey("my_private_key")
+    }
+
+    val myPublicKeyFlow: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_MY_PUBLIC_KEY] ?: ""
+    }
+
+    val myPrivateKeyFlow: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_MY_PRIVATE_KEY] ?: ""
+    }
+
+    suspend fun saveKeyPair(publicKey: String, privateKey: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_MY_PUBLIC_KEY] = publicKey
+            preferences[KEY_MY_PRIVATE_KEY] = privateKey
+        }
+    }
+
+    suspend fun getMyPrivateKey(): String {
+        return context.dataStore.data.map { it[KEY_MY_PRIVATE_KEY] ?: "" }.firstOrNull() ?: ""
+    }
+
+    suspend fun getMyPublicKey(): String {
+        return context.dataStore.data.map { it[KEY_MY_PUBLIC_KEY] ?: "" }.firstOrNull() ?: ""
     }
 
     val themeNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_THEME_NAME] ?: "DEFAULT"
-    }
-
-    val chatWallpaperFlow: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[KEY_CHAT_WALLPAPER] ?: "DOODLE_GEOMETRIC"
-    }
-
-    val wallpaperOpacityFlow: Flow<Float> = context.dataStore.data.map { preferences ->
-        preferences[KEY_WALLPAPER_OPACITY] ?: 0.35f
     }
 
     val isIncognitoKeyboardFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -139,18 +155,6 @@ class SecurityPreferencesRepository(private val context: Context) {
     suspend fun setThemeName(themeName: String) {
         context.dataStore.edit { preferences ->
             preferences[KEY_THEME_NAME] = themeName
-        }
-    }
-
-    suspend fun setChatWallpaper(wallpaper: String) {
-        context.dataStore.edit { preferences ->
-            preferences[KEY_CHAT_WALLPAPER] = wallpaper
-        }
-    }
-
-    suspend fun setWallpaperOpacity(opacity: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[KEY_WALLPAPER_OPACITY] = opacity.coerceIn(0.05f, 1.0f)
         }
     }
 

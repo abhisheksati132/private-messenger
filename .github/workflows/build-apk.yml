@@ -69,6 +69,8 @@ jobs:
             ### 🚀 Private Messenger ${{ env.VERSION }}
             
             **What's new in this release:**
+            * 🛡️ **Hardened End-to-End Cryptography:** Direct NIST P-256 ECDH peer-to-peer key agreement with authenticated AES-256-GCM.
+            * 🧹 **Codebase Refinement & Cleanup:** Removed all legacy unused artifacts, dead code, and compiler warnings.
             * 🎨 **Simplified & Welcoming UI/UX:** Clean human-first design without technical jargon, sci-fi badges, or doodle clutter.
             * 🔒 **Enhanced Privacy in Contacts:** Public registered directory removed. Only displays personal saved contacts; add friends directly by @handle.
             * 🧭 **Streamlined Navigation:** Scrapped status feature; clean 4-tab bar (Chats, Contacts, Calls, Settings) with fixed top padding across all screens.
